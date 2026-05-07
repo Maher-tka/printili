@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+lib/generated/prisma/
+
+# production
+build/
+tsconfig.tsbuildinfo
+.local-storage/
+
+# local env files
+.env
+.env*.local
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.next-dev*.log
+
+# system files
+.DS_Store
+Thumbs.db
+
+/lib/generated/prisma

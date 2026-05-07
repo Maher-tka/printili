@@ -1,0 +1,207 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { isAdminAuthenticated } from "@/lib/admin-auth";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+export const metadata: Metadata = {
+  title: "Admin Template AI Studio",
+  description: "Private admin intake for extracting collage template layouts from references."
+};
+
+const categories = [
+  ["baby", "Baby"],
+  ["couple", "Couple"],
+  ["birthday", "Birthday"],
+  ["family", "Family"],
+  ["wedding", "Wedding"],
+  ["cut_sheet", "Cut Sheet"],
+  ["custom", "Custom Gift"]
+];
+
+export default async function AdminTemplateAiPage() {
+  const authenticated = await isAdminAuthenticated();
+
+  if (!authenticated) {
+    redirect("/admin");
+  }
+
+  return (
+    <section className="page-shell py-10 sm:py-14" aria-labelledby="template-ai-heading">
+      <Link className="text-sm font-semibold text-rose" href="/admin">
+        Back to dashboard
+      </Link>
+
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">
+            Template AI studio
+          </p>
+          <h1
+            id="template-ai-heading"
+            className="mt-3 font-display text-4xl leading-tight sm:text-6xl"
+          >
+            Extract a collage layout
+          </h1>
+          <p className="mt-4 max-w-3xl text-base leading-7 text-charcoal-soft">
+            Use a real finished collage photo, an internet reference URL, or a clean layout image to
+            prepare photo slots, text fields, and print metadata for admin review.
+          </p>
+
+          <form
+            action="/api/admin/template-ai"
+            className="soft-card mt-8 grid gap-5 p-5 sm:p-6"
+            encType="multipart/form-data"
+            method="post"
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Template name" name="templateName" required />
+              <label className="grid gap-2 text-sm font-semibold text-charcoal">
+                Source type
+                <select
+                  className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
+                  name="sourceType"
+                >
+                  <option value="finished_collage_photo">Finished collage photo</option>
+                  <option value="layout_image">Layout image</option>
+                  <option value="internet_reference">Internet reference</option>
+                </select>
+              </label>
+            </div>
+
+            <Field label="Internet reference URL" name="sourceUrl" />
+
+            <label className="grid gap-2 text-sm font-semibold text-charcoal">
+              Upload reference image
+              <input
+                accept="image/*"
+                className="focus-ring rounded-[8px] border border-dashed border-[rgb(199_163_95_/_0.45)] bg-paper px-3 py-3 text-sm font-normal"
+                name="referenceImage"
+                type="file"
+              />
+            </label>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <label className="grid gap-2 text-sm font-semibold text-charcoal">
+                Category
+                <select
+                  className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
+                  name="category"
+                >
+                  {categories.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-semibold text-charcoal">
+                Product type
+                <select
+                  className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
+                  name="productType"
+                >
+                  <option value="poster">Poster</option>
+                  <option value="cut_sheet">Cut sheet</option>
+                  <option value="framed_gift">Framed gift</option>
+                  <option value="digital_printable">Digital printable</option>
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-semibold text-charcoal">
+                Target size
+                <select
+                  className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
+                  name="sheetSize"
+                >
+                  <option value="A4">A4 / 21 x 29.7 cm</option>
+                  <option value="A3">A3 / 29.7 x 42 cm</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+            </div>
+
+            <label className="grid gap-2 text-sm font-semibold text-charcoal">
+              Extraction notes
+              <textarea
+                className="focus-ring min-h-28 resize-none rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 py-2 text-sm font-normal"
+                name="notes"
+                placeholder="Example: keep the title editable, detect captions, make the main image a hero slot."
+              />
+            </label>
+
+            <div className="grid gap-3 text-sm text-charcoal-soft sm:grid-cols-2">
+              {[
+                ["detectSlots", "Detect photo slots"],
+                ["detectText", "Detect editable text"],
+                ["normalize", "Normalize 0-1 geometry"],
+                ["draftOnly", "Save as admin draft first"]
+              ].map(([name, label]) => (
+                <label
+                  className="flex items-center gap-3 rounded-[8px] bg-cream px-3 py-3"
+                  key={name}
+                >
+                  <input
+                    className="size-4 accent-rose"
+                    defaultChecked
+                    name={name}
+                    type="checkbox"
+                    value="true"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+
+            <button
+              className="focus-ring min-h-12 rounded-full bg-charcoal px-5 text-sm font-semibold text-paper"
+              type="submit"
+            >
+              Generate draft extraction
+            </button>
+          </form>
+        </div>
+
+        <aside className="grid gap-4 lg:sticky lg:top-24">
+          <div className="soft-card p-5">
+            <h2 className="text-xl font-semibold">Draft output</h2>
+            <div className="mt-4 grid gap-3 text-sm leading-6 text-charcoal-soft">
+              <p>Normalized photo slots with x, y, width, height, shape, and z-index.</p>
+              <p>Editable text zones for names, dates, quotes, captions, and birth details.</p>
+              <p>Admin review before the layout becomes active for customers.</p>
+            </div>
+          </div>
+          <div className="soft-card p-5">
+            <h2 className="text-xl font-semibold">Next AI wiring</h2>
+            <p className="mt-3 text-sm leading-6 text-charcoal-soft">
+              Connect this intake to a vision model that detects rectangles, masks, text baselines,
+              and poster safe margins from the reference image.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  name,
+  required = false
+}: {
+  label: string;
+  name: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-semibold text-charcoal">
+      {label}
+      <input
+        className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
+        name={name}
+        required={required}
+      />
+    </label>
+  );
+}

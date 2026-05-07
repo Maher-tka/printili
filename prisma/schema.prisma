@@ -1,0 +1,332 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TemplateCategory {
+  BABY      @map("baby")
+  COUPLE    @map("couple")
+  BIRTHDAY  @map("birthday")
+  FAMILY    @map("family")
+  WEDDING   @map("wedding")
+  CUT_SHEET @map("cut_sheet")
+  CUSTOM    @map("custom")
+}
+
+enum ProductType {
+  POSTER            @map("poster")
+  CUT_SHEET         @map("cut_sheet")
+  FRAMED_GIFT       @map("framed_gift")
+  DIGITAL_PRINTABLE @map("digital_printable")
+}
+
+enum SheetSize {
+  A4
+  A3
+  CUSTOM @map("custom")
+}
+
+enum TemplateOrientation {
+  PORTRAIT  @map("portrait")
+  LANDSCAPE @map("landscape")
+}
+
+enum PhotoOrientation {
+  PORTRAIT  @map("portrait")
+  LANDSCAPE @map("landscape")
+  SQUARE    @map("square")
+}
+
+enum EstimatedPrintQuality {
+  GOOD       @map("good")
+  ACCEPTABLE @map("acceptable")
+  LOW        @map("low")
+}
+
+enum SlotShape {
+  RECT       @map("rect")
+  CIRCLE     @map("circle")
+  HEART      @map("heart")
+  SILHOUETTE @map("silhouette")
+  NUMBER     @map("number")
+  CUSTOM     @map("custom")
+}
+
+enum SlotRole {
+  HERO       @map("hero")
+  SUPPORTING @map("supporting")
+  THUMBNAIL  @map("thumbnail")
+  SHAPE_TILE @map("shape_tile")
+}
+
+enum ProjectStatus {
+  DRAFT             @map("draft")
+  TEMPLATE_SELECTED @map("template_selected")
+  EDITING           @map("editing")
+  ORDER_SUBMITTED   @map("order_submitted")
+  EXPIRED           @map("expired")
+}
+
+enum FitMode {
+  COVER            @map("cover")
+  CONTAIN_BLUR     @map("contain_blur")
+  SMART_CROP       @map("smart_crop")
+  FACE_PRIORITY    @map("face_priority")
+  SUBJECT_PRIORITY @map("subject_priority")
+}
+
+enum PaymentMethod {
+  CASH_ON_DELIVERY @map("cash_on_delivery")
+}
+
+enum SampleUseConsent {
+  PRIVATE      @map("private")
+  BLUR_FACES   @map("blur_faces")
+  SHOW_PUBLIC  @map("show_public")
+}
+
+enum OrderStatus {
+  NEW_ORDER               @map("new_order")
+  WAITING_CONFIRMATION    @map("waiting_confirmation")
+  WAITING_CLIENT_APPROVAL @map("waiting_client_approval")
+  APPROVED                @map("approved")
+  READY_TO_PRINT          @map("ready_to_print")
+  PRINTED                 @map("printed")
+  CUT_FINISHED            @map("cut_finished")
+  OUT_FOR_DELIVERY        @map("out_for_delivery")
+  DELIVERED               @map("delivered")
+  CANCELLED               @map("cancelled")
+}
+
+model Template {
+  id                      String              @id @default(cuid())
+  slug                    String              @unique
+  name                    String
+  category                TemplateCategory
+  productType             ProductType
+  sheetSize               SheetSize
+  orientation             TemplateOrientation
+  minPhotos               Int
+  maxPhotos               Int
+  preferredPortraitCount  Int                 @default(0)
+  preferredLandscapeCount Int                 @default(0)
+  preferredSquareCount    Int                 @default(0)
+  hasCutGuides            Boolean             @default(false)
+  cutLinePt               Decimal             @default(0.25) @db.Decimal(5, 2)
+  safeMarginMm            Decimal             @default(5) @db.Decimal(5, 2)
+  bleedMm                 Decimal             @default(3) @db.Decimal(5, 2)
+  dpi                     Int                 @default(300)
+  tags                    String[]            @default([])
+  isActive                Boolean             @default(true)
+  isFeatured              Boolean             @default(false)
+  version                 Int                 @default(1)
+  previewImageUrl         String
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  slots                   TemplateSlot[]
+  textFields              TemplateTextField[]
+  projects                Project[]
+
+  @@index([category, productType, isActive])
+  @@index([isFeatured, isActive])
+  @@map("templates")
+}
+
+model TemplateSlot {
+  id                   String             @id @default(cuid())
+  templateId           String
+  x                    Decimal            @db.Decimal(7, 6)
+  y                    Decimal            @db.Decimal(7, 6)
+  width                Decimal            @db.Decimal(7, 6)
+  height               Decimal            @db.Decimal(7, 6)
+  shape                SlotShape          @default(RECT)
+  role                 SlotRole           @default(SUPPORTING)
+  preferredOrientation PhotoOrientation?
+  zIndex               Int                @default(0)
+  borderRadius         Decimal            @default(0) @db.Decimal(5, 2)
+  allowBlurFill        Boolean            @default(true)
+  allowSmartCrop       Boolean            @default(true)
+  template             Template           @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  placements           ProjectPlacement[]
+
+  @@index([templateId, zIndex])
+  @@map("template_slots")
+}
+
+model TemplateTextField {
+  id           String   @id @default(cuid())
+  templateId   String
+  key          String
+  label        String
+  placeholder  String?
+  defaultValue String?
+  x            Decimal  @db.Decimal(7, 6)
+  y            Decimal  @db.Decimal(7, 6)
+  width        Decimal  @db.Decimal(7, 6)
+  height       Decimal  @db.Decimal(7, 6)
+  fontSize     Decimal  @db.Decimal(5, 2)
+  maxLength    Int?
+  isRequired   Boolean  @default(false)
+  zIndex       Int      @default(0)
+  template     Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, key])
+  @@index([templateId, zIndex])
+  @@map("template_text_fields")
+}
+
+model Project {
+  id               String             @id @default(cuid())
+  guestToken       String             @unique
+  projectCode      String             @unique
+  category         TemplateCategory   @default(CUSTOM)
+  chosenTemplateId String?
+  sheetSize        SheetSize          @default(A4)
+  status           ProjectStatus      @default(DRAFT)
+  clientName       String?
+  whatsapp         String?
+  deliveryAddress  String?
+  city             String?
+  notes            String?
+  designApproved   Boolean            @default(false)
+  clientApprovedPreview Boolean        @default(false)
+  expiresAt        DateTime
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  chosenTemplate   Template?          @relation(fields: [chosenTemplateId], references: [id], onDelete: SetNull)
+  photos           ProjectPhoto[]
+  placements       ProjectPlacement[]
+  textValues       ProjectTextValue[]
+  order            Order?
+  adminNotes       AdminNote[]
+
+  @@index([guestToken])
+  @@index([projectCode])
+  @@index([status, expiresAt])
+  @@map("projects")
+}
+
+model ProjectPhoto {
+  id                    String                @id @default(cuid())
+  projectId             String
+  fileName              String
+  originalUrl           String
+  previewUrl            String?
+  widthPx               Int?
+  heightPx              Int?
+  orientation           PhotoOrientation?
+  aspectRatio           Decimal?              @db.Decimal(8, 4)
+  fileSizeBytes         Int?
+  estimatedPrintQuality EstimatedPrintQuality @default(LOW)
+  brightnessScore       Decimal?              @db.Decimal(5, 4)
+  sharpnessScore        Decimal?              @db.Decimal(5, 4)
+  qualityWarnings       String[]              @default([])
+  qualityScore          Decimal?              @db.Decimal(4, 2)
+  uploadedAt            DateTime              @default(now())
+  project               Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  placements            ProjectPlacement[]
+
+  @@index([projectId])
+  @@map("project_photos")
+}
+
+model ProjectPlacement {
+  id        String       @id @default(cuid())
+  projectId String
+  photoId   String
+  slotId    String
+  zoom      Decimal      @default(1) @db.Decimal(6, 3)
+  offsetX   Decimal      @default(0) @db.Decimal(7, 4)
+  offsetY   Decimal      @default(0) @db.Decimal(7, 4)
+  rotation  Decimal      @default(0) @db.Decimal(6, 2)
+  fitMode   FitMode      @default(COVER)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  photo     ProjectPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  slot      TemplateSlot @relation(fields: [slotId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, slotId])
+  @@index([projectId, photoId])
+  @@map("project_placements")
+}
+
+model ProjectTextValue {
+  id        String   @id @default(cuid())
+  projectId String
+  fieldKey  String
+  value     String
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, fieldKey])
+  @@index([projectId])
+  @@map("project_text_values")
+}
+
+model Order {
+  id              String               @id @default(cuid())
+  orderNumber     String               @unique
+  projectId       String               @unique
+  clientName      String
+  whatsapp        String
+  deliveryAddress String
+  city            String
+  deliveryNotes   String?
+  quantity        Int                  @default(1)
+  productOption   String               @default("print_only")
+  addFrame        Boolean              @default(false)
+  giftWrap        Boolean              @default(false)
+  premiumPaper    Boolean              @default(false)
+  finish          String               @default("matte")
+  urgentOrder     Boolean              @default(false)
+  sampleUseConsent SampleUseConsent    @default(PRIVATE)
+  paymentMethod   PaymentMethod        @default(CASH_ON_DELIVERY)
+  status          OrderStatus          @default(NEW_ORDER)
+  totalPrice      Decimal?             @db.Decimal(10, 2)
+  deliveryFee     Decimal?             @db.Decimal(10, 2)
+  previewFilePath String?
+  printFilePath   String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  project         Project              @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  statusHistory   OrderStatusHistory[]
+  adminNotes      AdminNote[]
+
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model OrderStatusHistory {
+  id         String       @id @default(cuid())
+  orderId    String
+  fromStatus OrderStatus?
+  status     OrderStatus
+  note       String?
+  changedBy  String?
+  createdAt  DateTime     @default(now())
+  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@map("order_status_history")
+}
+
+model AdminNote {
+  id         String   @id @default(cuid())
+  projectId  String?
+  orderId    String?
+  author     String?
+  body       String
+  isInternal Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  order      Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([orderId, createdAt])
+  @@map("admin_notes")
+}
