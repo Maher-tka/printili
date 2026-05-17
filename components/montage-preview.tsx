@@ -27,6 +27,7 @@ type MontagePreviewProps = {
   showCutGuides?: boolean;
   watermarkText?: string;
   className?: string;
+  showSlotLabels?: boolean;
   onSlotSelect?: (slotId: string) => void;
 };
 
@@ -43,6 +44,7 @@ export function MontagePreview({
   showCutGuides = template.hasCutGuides,
   watermarkText = "PREVIEW",
   className,
+  showSlotLabels = false,
   onSlotSelect
 }: MontagePreviewProps) {
   const photoById = createPhotoMap(photos);
@@ -71,6 +73,7 @@ export function MontagePreview({
           lowRes={protectedPreview}
           slot={slot}
           slotNumber={index + 1}
+          showSlotLabels={showSlotLabels}
           templateSlug={template.slug}
           templateName={template.name}
           onSelect={onSlotSelect ? () => onSlotSelect(slot.id) : undefined}
@@ -96,6 +99,7 @@ function PhotoSlot({
   templateName,
   templateSlug,
   slotNumber,
+  showSlotLabels,
   isSelected,
   onSelect
 }: {
@@ -106,6 +110,7 @@ function PhotoSlot({
   templateName: string;
   templateSlug: string;
   slotNumber: number;
+  showSlotLabels: boolean;
   isSelected: boolean;
   onSelect?: () => void;
 }) {
@@ -116,7 +121,7 @@ function PhotoSlot({
   const isPolaroidCell = templateSlug === "a4-9-polaroid-cut-sheet";
   const slotClassName = cn(
     "absolute overflow-hidden border border-paper/80 bg-cream-strong text-left shadow-[0_8px_18px_rgb(45_41_38_/_0.12)] transition",
-    onSelect && "focus-ring",
+    onSelect && "focus-ring cursor-pointer hover:ring-2 hover:ring-rose/60",
     isSelected && "ring-2 ring-rose ring-offset-2 ring-offset-paper"
   );
   const slotStyle = {
@@ -139,10 +144,21 @@ function PhotoSlot({
         templateName={templateName}
       />
     ) : (
-      <span className="flex h-full w-full items-center justify-center px-2 text-center text-[10px] font-semibold uppercase text-charcoal-soft">
-        Photo
+      <span className="flex h-full w-full items-center justify-center break-all px-1 text-center text-[9px] font-semibold uppercase leading-tight text-charcoal-soft sm:text-[10px]">
+        {showSlotLabels ? slot.id : "Photo"}
       </span>
     );
+  const slotBadge = onSelect ? (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "pointer-events-none absolute left-1 top-1 z-20 grid size-5 place-items-center rounded-full text-[10px] font-semibold shadow-[0_4px_12px_rgb(45_41_38_/_0.16)]",
+        isSelected ? "bg-rose text-paper" : "bg-paper/90 text-charcoal"
+      )}
+    >
+      {slotNumber}
+    </span>
+  ) : null;
 
   if (onSelect) {
     return (
@@ -155,6 +171,7 @@ function PhotoSlot({
         type="button"
       >
         {content}
+        {slotBadge}
       </button>
     );
   }
@@ -168,6 +185,7 @@ function PhotoSlot({
       style={slotStyle}
     >
       {content}
+      {slotBadge}
     </div>
   );
 }

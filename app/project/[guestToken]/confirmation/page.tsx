@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MontagePreview } from "@/components/montage-preview";
-import { getTemplateEditorLayout } from "@/data/template-layouts";
 import { getOrderByProjectToken } from "@/lib/order-store";
 import { getGuestProject } from "@/lib/project-store";
-import { formatSheetSizeCm, getTemplateBySlug } from "@/lib/templates";
+import {
+  getPublicTemplateBySlug,
+  getPublicTemplateEditorLayout
+} from "@/lib/public-template-store";
+import { formatSheetSizeCm } from "@/lib/templates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,8 +39,9 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
   }
 
   const template = project.chosenTemplateSlug
-    ? getTemplateBySlug(project.chosenTemplateSlug)
+    ? await getPublicTemplateBySlug(project.chosenTemplateSlug)
     : null;
+  const layout = template ? await getPublicTemplateEditorLayout(template.slug) : null;
   const whatsappMessage = encodeURIComponent(
     `Hello, I submitted order ${order.orderNumber} for project ${project.projectCode}.`
   );
@@ -61,7 +65,9 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
               WhatsApp before printing.
             </p>
             <p>This is a protected preview. Your final print will be clean and high quality.</p>
-            {template ? <p>Print size: {formatSheetSizeCm(template.sheetSize, template.orientation)}</p> : null}
+            {template ? (
+              <p>Print size: {formatSheetSizeCm(template.sheetSize, template.orientation)}</p>
+            ) : null}
           </div>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -82,10 +88,10 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           </div>
         </div>
 
-        {template ? (
+        {template && layout ? (
           <aside className="rounded-[8px] bg-[rgb(45_41_38_/_0.06)] p-3 shadow-soft">
             <MontagePreview
-              layout={getTemplateEditorLayout(template.slug)}
+              layout={layout}
               photos={project.photos}
               placements={project.placements}
               protectedPreview

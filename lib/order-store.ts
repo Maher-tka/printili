@@ -8,20 +8,12 @@ import {
   SampleUseConsent,
   SheetSize
 } from "@/lib/generated/prisma/client";
+import { type OrderStatusId } from "@/lib/order-workflow";
 import { prisma } from "@/lib/prisma";
 import { getGuestProject } from "@/lib/project-store";
 
-export type OrderStatusId =
-  | "new_order"
-  | "waiting_confirmation"
-  | "waiting_client_approval"
-  | "approved"
-  | "ready_to_print"
-  | "printed"
-  | "cut_finished"
-  | "out_for_delivery"
-  | "delivered"
-  | "cancelled";
+export type { OrderStatusId } from "@/lib/order-workflow";
+export { orderStatusLabels } from "@/lib/order-workflow";
 
 export type SampleUseConsentId = "private" | "blur_faces" | "show_public";
 
@@ -99,19 +91,6 @@ export type CreateOrderInput = {
 type LocalOrderRecord = OrderSummary;
 
 const localOrderStorePath = path.join(process.cwd(), ".local-storage", "orders.json");
-
-export const orderStatusLabels: Record<OrderStatusId, string> = {
-  new_order: "New orders",
-  waiting_confirmation: "Waiting confirmation",
-  waiting_client_approval: "Waiting client approval",
-  approved: "Approved",
-  ready_to_print: "Ready to print",
-  printed: "Printed",
-  cut_finished: "Cut/finished",
-  out_for_delivery: "Out for delivery",
-  delivered: "Delivered",
-  cancelled: "Cancelled"
-};
 
 export async function createOrder(input: CreateOrderInput) {
   const project = await getGuestProject(input.guestToken);
@@ -311,11 +290,15 @@ export async function updateOrderStatus({
     try {
       const currentOrder = await prisma.order.findUnique({
         where: { id: orderId },
-        select: { status: true }
+        include: orderInclude
       });
 
       if (!currentOrder) {
         return null;
+      }
+
+      if (currentOrder.status === toPrismaStatus(status)) {
+        return toOrderSummary(currentOrder);
       }
 
       const updatedOrder = await prisma.order.update({
@@ -341,6 +324,10 @@ export async function updateOrderStatus({
   }
 
   return updateLocalOrder(orderId, (order) => {
+    if (order.status === status) {
+      return order;
+    }
+
     const now = new Date().toISOString();
 
     return {

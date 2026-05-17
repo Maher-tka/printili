@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { updateOrderStatus, type OrderStatusId } from "@/lib/order-store";
+import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { updateOrderStatus } from "@/lib/order-store";
+import { isOrderStatusId } from "@/lib/order-workflow";
 
 export const runtime = "nodejs";
 
@@ -7,33 +9,34 @@ type StatusRouteProps = {
   params: Promise<{ orderId: string }>;
 };
 
-const statuses: OrderStatusId[] = [
-  "new_order",
-  "waiting_confirmation",
-  "waiting_client_approval",
-  "approved",
-  "ready_to_print",
-  "printed",
-  "cut_finished",
-  "out_for_delivery",
-  "delivered",
-  "cancelled"
-];
-
 export async function POST(request: Request, { params }: StatusRouteProps) {
+  const authenticated = await isAdminAuthenticated();
   const { orderId } = await params;
+
+  if (!authenticated) {
+    return NextResponse.redirect(new URL("/admin", request.url), 303);
+  }
+
   const formData = await request.formData();
   const status = formData.get("status");
 
-  if (typeof status !== "string" || !statuses.includes(status as OrderStatusId)) {
-    return NextResponse.json({ message: "Choose a valid status." }, { status: 400 });
+  if (!isOrderStatusId(status)) {
+    return NextResponse.redirect(
+      new URL(`/admin/orders/${orderId}?status=invalid`, request.url),
+      303
+    );
   }
 
-  await updateOrderStatus({
+  const note = formData.get("note");
+  const updatedOrder = await updateOrderStatus({
     orderId,
-    status: status as OrderStatusId,
-    note: typeof formData.get("note") === "string" ? String(formData.get("note")) : undefined
+    status,
+    note: typeof note === "string" && note.trim() ? note.trim() : undefined
   });
 
-  return NextResponse.redirect(new URL(`/admin/orders/${orderId}`, request.url), 303);
+  if (!updatedOrder) {
+    return NextResponse.redirect(new URL("/admin?order=missing", request.url), 303);
+  }
+
+  return NextResponse.redirect(new URL(`/admin/orders/${orderId}?status=saved`, request.url), 303);
 }

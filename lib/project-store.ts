@@ -10,7 +10,10 @@ import {
   TemplateCategory
 } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getTemplateEditorLayout } from "@/data/template-layouts";
+import {
+  getPublicTemplateBySlug,
+  getPublicTemplateEditorLayout
+} from "@/lib/public-template-store";
 import type { SheetSize as CustomerSheetSize, TemplateCategoryId } from "@/types/templates";
 
 export type UploadedProjectPhoto = {
@@ -384,15 +387,13 @@ async function chooseLocalTemplate({
 
   const project = store[projectIndex];
   const photoIds = project.photos.map((photo, index) => photo.id ?? `local-photo-${index + 1}`);
-  const template = await import("@/data/seed-templates").then((module) =>
-    module.featuredTemplates.find((seedTemplate) => seedTemplate.slug === templateSlug)
-  );
+  const template = await getPublicTemplateBySlug(templateSlug);
 
   if (!template) {
-    throw new Error("Template was not found in the seed library.");
+    throw new Error("Template was not found in the public template library.");
   }
 
-  const layout = getTemplateEditorLayout(template.slug);
+  const layout = await getPublicTemplateEditorLayout(template.slug);
 
   const updatedProject: LocalProjectRecord = {
     ...project,

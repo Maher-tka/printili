@@ -6,9 +6,8 @@ export const categories: CategorySeed[] = [
     slug: "baby",
     name: "Baby",
     description: "First year posters, birth details, and soft nursery-ready keepsakes.",
-    image:
-      "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&w=900&q=80",
-    imageAlt: "Baby smiling in soft natural light",
+    image: "/printili/cat-baby-collages.webp",
+    imageAlt: "Baby collage product scene",
     seoTitle: "Baby Photo Montage Templates",
     seoDescription:
       "Browse printable baby photo montage templates for first year posters, birth info gifts, and nursery keepsakes."
@@ -18,9 +17,8 @@ export const categories: CategorySeed[] = [
     slug: "couple",
     name: "Couple",
     description: "Heart collages and romantic prints for anniversaries and love stories.",
-    image:
-      "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=900&q=80",
-    imageAlt: "Couple holding hands outdoors",
+    image: "/printili/story-real-smiles-wide-hq.webp",
+    imageAlt: "Heart-shaped couple photo collage wall",
     seoTitle: "Couple Photo Montage Templates",
     seoDescription:
       "Browse romantic couple photo montage templates for anniversaries, love posters, and heart collages."
@@ -30,9 +28,8 @@ export const categories: CategorySeed[] = [
     slug: "birthday",
     name: "Birthday",
     description: "Number collages and celebratory photo layouts made for gifting.",
-    image:
-      "https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?auto=format&fit=crop&w=900&q=80",
-    imageAlt: "Birthday cake with candles",
+    image: "/printili/cat-birthday.webp",
+    imageAlt: "Birthday number collage product scene",
     seoTitle: "Birthday Photo Collage Templates",
     seoDescription:
       "Browse birthday number collage templates and printable celebration posters made from favorite photos."
@@ -42,9 +39,8 @@ export const categories: CategorySeed[] = [
     slug: "family",
     name: "Family",
     description: "Warm story-led collages for family portraits and everyday moments.",
-    image:
-      "https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&w=900&q=80",
-    imageAlt: "Family sitting together on a bed",
+    image: "/printili/cat-family-albums.webp",
+    imageAlt: "Family album product scene",
     seoTitle: "Family Photo Montage Templates",
     seoDescription:
       "Browse family photo montage templates for memory posters, parent gifts, and printed keepsakes."
@@ -54,9 +50,8 @@ export const categories: CategorySeed[] = [
     slug: "wedding",
     name: "Wedding",
     description: "Welcome posters and elegant couple layouts for wedding celebrations.",
-    image:
-      "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=900&q=80",
-    imageAlt: "Wedding couple standing together",
+    image: "/printili/cat-wedding-prints.webp",
+    imageAlt: "Wedding print product scene",
     seoTitle: "Wedding Photo Poster Templates",
     seoDescription:
       "Browse wedding welcome poster templates and elegant printable photo designs for wedding celebrations."
@@ -66,9 +61,8 @@ export const categories: CategorySeed[] = [
     slug: "cut-sheets",
     name: "Cut Sheets",
     description: "A4 photo sheets with equal pieces and fine cutting guide lines.",
-    image:
-      "https://images.unsplash.com/photo-1492725764893-90b379c2b6e7?auto=format&fit=crop&w=900&q=80",
-    imageAlt: "Printed photos arranged on a table",
+    image: "/printili/cat-polaroids.webp",
+    imageAlt: "Polaroid prints product scene",
     seoTitle: "Cuttable Photo Sheet Templates",
     seoDescription:
       "Browse A4 cuttable photo sheet templates with equal grids and fine cutting guide lines."
@@ -78,9 +72,8 @@ export const categories: CategorySeed[] = [
     slug: "custom-gifts",
     name: "Custom Gifts",
     description: "Flexible decorative layouts for parents, personal stories, and mixed occasions.",
-    image:
-      "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=900&q=80",
-    imageAlt: "Friends looking at printed photographs",
+    image: "/printili/cat-personalized-gifts.webp",
+    imageAlt: "Personalized photo gift product scene",
     seoTitle: "Custom Photo Gift Templates",
     seoDescription:
       "Browse custom printable photo gift templates for mother, father, family, and personal keepsake posters."
@@ -116,9 +109,8 @@ export const featuredTemplates: TemplateSeed[] = [
       "Includes thin 0.25 pt cutting guide lines.",
       "Designed for clean cutting and physical finishing."
     ],
-    previewImage:
-      "https://images.unsplash.com/photo-1492725764893-90b379c2b6e7?auto=format&fit=crop&w=900&q=80",
-    previewAlt: "Printed instant photos arranged in a grid",
+    previewImage: "/printili/cat-polaroids.webp",
+    previewAlt: "Polaroid-style prints arranged in warm light",
     seoTitle: "A4 9 Photo Polaroid Cut Sheet",
     seoDescription:
       "Create an A4 printable Polaroid photo sheet with 9 equal photos and fine cutting guide lines."
@@ -151,9 +143,8 @@ export const featuredTemplates: TemplateSeed[] = [
       "Includes thin 0.25 pt cutting guide lines.",
       "Works best with horizontal photos."
     ],
-    previewImage:
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=900&q=80",
-    previewAlt: "Printed photographs laid out for cutting",
+    previewImage: "/printili/cat-photo-collages.webp",
+    previewAlt: "Photo collage print arranged in warm light",
     seoTitle: "A4 8 Landscape Photo Cut Sheet",
     seoDescription:
       "Create an A4 printable landscape photo sheet with 8 equal photos and cutting guides."
@@ -185,9 +176,8 @@ export const featuredTemplates: TemplateSeed[] = [
       "Best with 12 clear monthly baby photos.",
       "Includes editable baby name and subtitle text."
     ],
-    previewImage:
-      "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&w=900&q=80",
-    previewAlt: "Baby portrait for a first year photo poster",
+    previewImage: "/printili/cat-baby-collages.webp",
+    previewAlt: "Baby collage print scene",
     seoTitle: "Baby First Year Photo Poster",
     seoDescription:
       "Create a printable baby first year poster with 12 milestone photos and elegant keepsake styling."
@@ -219,9 +209,8 @@ export const featuredTemplates: TemplateSeed[] = [
       "Includes editable name, birth date, weight, and height.",
       "Works best with one strong portrait and supporting detail photos."
     ],
-    previewImage:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?auto=format&fit=crop&w=900&q=80",
-    previewAlt: "Newborn baby wrapped in a soft blanket",
+    previewImage: "/printili/cat-baby-collages.webp",
+    previewAlt: "Baby keepsake print scene",
     seoTitle: "Baby Birth Info Silhouette Poster",
     seoDescription:
       "Create a printable baby birth info silhouette poster with newborn photos and editable birth details."
@@ -253,9 +242,8 @@ export const featuredTemplates: TemplateSeed[] = [
       "Designed for a large set of mixed photo orientations.",
       "Includes optional couple names text."
     ],
-    previewImage:
-      "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=900&q=80",
-    previewAlt: "Couple holding hands for a romantic collage poster",
+    previewImage: "/printili/story-real-smiles-wide-hq.webp",
+    previewAlt: "Heart-shaped couple photo wall",
     seoTitle: "Couple Heart Photo Collage",
     seoDescription:
       "Create a romantic couple heart photo collage poster with 18 to 24 favorite relationship photos."
@@ -287,9 +275,8 @@ export const featuredTemplates: TemplateSeed[] = [
       "Best with one hero landscape photo and smaller supporting photos.",
       "Includes editable headline text."
     ],
-    previewImage:
-      "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=900&q=80",
-    previewAlt: "Couple standing together for a love poster",
+    previewImage: "/printili/story-real-smiles-wide-hq.webp",
+    previewAlt: "Warm couple photo collage wall",
     seoTitle: "Couple Love Poster Template",
     seoDescription:
       "Create a printable couple love poster with a hero photo, supporting memories, and custom text."
@@ -321,9 +308,8 @@ export const featuredTemplates: TemplateSeed[] = [
       "Includes editable age number and name.",
       "Mixed photo orientations work well."
     ],
-    previewImage:
-      "https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?auto=format&fit=crop&w=900&q=80",
-    previewAlt: "Birthday cake with candles for a number collage",
+    previewImage: "/printili/cat-birthday.webp",
+    previewAlt: "Birthday number collage print scene",
     seoTitle: "Birthday Number Photo Collage",
     seoDescription:
       "Create a printable birthday number collage poster with 12 to 18 photos and custom age text."
@@ -355,9 +341,8 @@ export const featuredTemplates: TemplateSeed[] = [
       "Best with one strong landscape hero photo.",
       "Includes editable family title text."
     ],
-    previewImage:
-      "https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&w=900&q=80",
-    previewAlt: "Family sitting together for a memory poster",
+    previewImage: "/printili/cat-family-albums.webp",
+    previewAlt: "Family album product scene",
     seoTitle: "Family Memory Photo Poster",
     seoDescription:
       "Create a printable family memory poster with a hero photo and supporting family moments."
@@ -389,9 +374,8 @@ export const featuredTemplates: TemplateSeed[] = [
       "Works with one main couple portrait and optional supporting photos.",
       "Includes editable names, welcome line, and wedding date."
     ],
-    previewImage:
-      "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=80",
-    previewAlt: "Wedding couple for a welcome poster",
+    previewImage: "/printili/cat-wedding-prints.webp",
+    previewAlt: "Wedding print product scene",
     seoTitle: "Wedding Welcome Photo Poster",
     seoDescription:
       "Create a printable wedding welcome poster with couple photos, names, and wedding date."
@@ -423,9 +407,8 @@ export const featuredTemplates: TemplateSeed[] = [
       "Designed for printing, finishing, and optional framing.",
       "Includes editable title and short gift message."
     ],
-    previewImage:
-      "https://images.unsplash.com/photo-1542037104857-ffbb0b9155fb?auto=format&fit=crop&w=900&q=80",
-    previewAlt: "Parent holding a child close for a family gift poster",
+    previewImage: "/printili/cat-personalized-gifts.webp",
+    previewAlt: "Personalized photo gift scene",
     seoTitle: "Mother and Father Photo Gift Poster",
     seoDescription:
       "Create a printable mother or father gift poster with family photos and a personal message."

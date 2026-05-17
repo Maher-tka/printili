@@ -14,9 +14,9 @@ type ButtonLinkProps = LinkProps &
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "bg-charcoal text-paper shadow-[0_16px_35px_rgb(45_41_38_/_0.18)] hover:bg-[rgb(62_55_51)]",
+    "bg-charcoal text-paper shadow-[0_16px_35px_rgb(45_41_38_/_0.18)] hover:bg-[rgb(40_40_40)]",
   secondary: "border border-paper/70 bg-paper/16 text-paper backdrop-blur hover:bg-paper/24",
-  outline: "border border-[rgb(199_163_95_/_0.45)] bg-paper text-charcoal hover:bg-cream"
+  outline: "border border-[rgb(20_20_20_/_0.16)] bg-paper/80 text-charcoal hover:bg-paper"
 };
 
 const sizes: Record<ButtonSize, string> = {
@@ -35,7 +35,7 @@ export function ButtonLink({
   return (
     <Link
       className={cn(
-        "focus-ring inline-flex items-center justify-center rounded-full font-semibold transition",
+        "focus-ring inline-flex items-center justify-center rounded-[14px] font-semibold transition",
         variants[variant],
         sizes[size],
         className

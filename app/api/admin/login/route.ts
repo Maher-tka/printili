@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     cookieStore.set(getAdminCookieName(), String(password ?? expectedPassword ?? "dev-admin"), {
       httpOnly: true,
       sameSite: "lax",
-      path: "/admin"
+      path: "/"
     });
 
     return NextResponse.redirect(new URL("/admin", request.url), 303);

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { PublicPageHero } from "@/components/printili/PublicPageHero";
 import { TemplateCard } from "@/components/template-card";
 import { TemplateFilters } from "@/components/template-filters";
 import { categories } from "@/data/seed-templates";
-import { getCategoryBySlug, getFilteredTemplates, parseTemplateFilters } from "@/lib/templates";
+import { getFilteredPublicTemplates } from "@/lib/public-template-store";
+import { getCategoryBySlug, parseTemplateFilters } from "@/lib/templates";
 
 type QueryParams = Record<string, string | string[] | undefined>;
 
@@ -17,6 +19,9 @@ export function generateStaticParams() {
     category: category.slug
   }));
 }
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
   const { category: slug } = await params;
@@ -50,24 +55,27 @@ export default async function TemplateCategoryPage({ params, searchParams }: Cat
     ...parseTemplateFilters((await searchParams) ?? {}),
     categoryId: category.id
   };
-  const templates = getFilteredTemplates(filters);
+  const templates = await getFilteredPublicTemplates(filters);
 
   return (
-    <section className="page-shell py-12 sm:py-16" aria-labelledby="category-heading">
-      <div className="max-w-3xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">
-          Printable templates
-        </p>
-        <h1 id="category-heading" className="mt-3 font-display text-4xl leading-tight sm:text-6xl">
-          {category.name} photo montage templates
-        </h1>
-        <p className="mt-5 text-base leading-7 text-charcoal-soft">{category.seoDescription}</p>
-      </div>
+    <section className="page-shell printili-public-page" aria-labelledby="category-heading">
+      <PublicPageHero
+        eyebrow="Printable templates"
+        image={categoryHeroImage(category.id)}
+        imageAlt={category.imageAlt}
+        intro={category.seoDescription}
+        primaryAction={{ href: "/start", label: "Start creating" }}
+        secondaryAction={{ href: "/templates", label: "All products" }}
+        titleId="category-heading"
+        title={`${category.name} photo montage templates`}
+      />
 
       <div className="mt-8">
         <TemplateFilters
           selectedCategory={filters.categoryId}
+          selectedDeliveryType={filters.deliveryType}
           selectedPhotoCount={filters.photoCount}
+          selectedPricedOnly={filters.pricedOnly}
           selectedProductType={filters.productType}
           selectedSheetSize={filters.sheetSize}
         />
@@ -97,4 +105,18 @@ export default async function TemplateCategoryPage({ params, searchParams }: Cat
       )}
     </section>
   );
+}
+
+function categoryHeroImage(categoryId: string) {
+  const images: Record<string, string> = {
+    baby: "/printili/cat-baby-collages.webp",
+    couple: "/printili/story-real-smiles-wide-hq.webp",
+    birthday: "/printili/cat-birthday.webp",
+    family: "/printili/cat-family-albums.webp",
+    wedding: "/printili/cat-wedding-prints.webp",
+    cut_sheet: "/printili/cat-polaroids.webp",
+    custom: "/printili/cat-personalized-gifts.webp"
+  };
+
+  return images[categoryId] ?? "/printili/hero-clean-scene.png";
 }

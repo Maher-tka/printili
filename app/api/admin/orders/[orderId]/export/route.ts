@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { getOrderById } from "@/lib/order-store";
+import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { getOrderById, updateOrderStatus } from "@/lib/order-store";
+import { shouldPromoteToReadyToPrintAfterExport } from "@/lib/order-workflow";
 import { generatePrintExport } from "@/lib/print-export";
 
 export const runtime = "nodejs";
@@ -9,14 +11,37 @@ type ExportRouteProps = {
 };
 
 export async function POST(request: Request, { params }: ExportRouteProps) {
+  const authenticated = await isAdminAuthenticated();
   const { orderId } = await params;
+
+  if (!authenticated) {
+    return NextResponse.redirect(new URL("/admin", request.url), 303);
+  }
+
   const order = await getOrderById(orderId);
 
   if (!order) {
-    return NextResponse.json({ message: "Order not found." }, { status: 404 });
+    return NextResponse.redirect(new URL("/admin?order=missing", request.url), 303);
   }
 
-  await generatePrintExport(order);
+  try {
+    await generatePrintExport(order);
 
-  return NextResponse.redirect(new URL(`/admin/orders/${orderId}`, request.url), 303);
+    if (shouldPromoteToReadyToPrintAfterExport(order.status)) {
+      await updateOrderStatus({
+        orderId,
+        status: "ready_to_print",
+        note: "Print PDF generated and ready for production."
+      });
+    }
+  } catch (error) {
+    console.warn("Print export failed.", error);
+
+    return NextResponse.redirect(
+      new URL(`/admin/orders/${orderId}?export=failed`, request.url),
+      303
+    );
+  }
+
+  return NextResponse.redirect(new URL(`/admin/orders/${orderId}?export=ready`, request.url), 303);
 }

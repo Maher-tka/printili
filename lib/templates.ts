@@ -17,7 +17,11 @@ export type TemplateFilterInput = {
   sheetSize?: SheetSize;
   productType?: ProductType;
   photoCount?: number;
+  deliveryType?: DeliveryType;
+  pricedOnly?: boolean;
 };
+
+export type DeliveryType = "physical" | "digital";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -34,6 +38,7 @@ const templateCategoryIds: TemplateCategoryId[] = [
 const sheetSizes: SheetSize[] = ["A4", "A3", "custom"];
 
 const productTypes: ProductType[] = ["poster", "cut_sheet", "framed_gift", "digital_printable"];
+const deliveryTypes: DeliveryType[] = ["physical", "digital"];
 
 export const productTypeLabels: Record<ProductType, string> = {
   poster: "Poster",
@@ -84,18 +89,27 @@ function isProductType(value: string | undefined): value is ProductType {
   return productTypes.includes(value as ProductType);
 }
 
+function isDeliveryType(value: string | undefined): value is DeliveryType {
+  return deliveryTypes.includes(value as DeliveryType);
+}
+
 export function parseTemplateFilters(searchParams: SearchParams = {}): TemplateFilterInput {
   const category = getSingleQueryValue(searchParams.category);
   const sheetSize = getSingleQueryValue(searchParams.sheetSize);
   const productType = getSingleQueryValue(searchParams.productType);
   const photoCountValue = getSingleQueryValue(searchParams.photoCount);
+  const deliveryType = getSingleQueryValue(searchParams.deliveryType);
+  const pricedOnly = getSingleQueryValue(searchParams.pricedOnly);
   const photoCount = photoCountValue ? Number(photoCountValue) : undefined;
 
   return {
     categoryId: isTemplateCategoryId(category) ? category : undefined,
     sheetSize: isSheetSize(sheetSize) ? sheetSize : undefined,
     productType: isProductType(productType) ? productType : undefined,
-    photoCount: photoCount && Number.isFinite(photoCount) && photoCount > 0 ? photoCount : undefined
+    photoCount:
+      photoCount && Number.isFinite(photoCount) && photoCount > 0 ? photoCount : undefined,
+    deliveryType: isDeliveryType(deliveryType) ? deliveryType : undefined,
+    pricedOnly: pricedOnly === "1"
   };
 }
 
@@ -132,7 +146,9 @@ export function getFilteredTemplates({
   categoryId,
   sheetSize,
   productType,
-  photoCount
+  photoCount,
+  deliveryType,
+  pricedOnly
 }: TemplateFilterInput) {
   return featuredTemplates.filter((template) => {
     const categoryMatches = !categoryId || template.categoryId === categoryId;
@@ -140,8 +156,21 @@ export function getFilteredTemplates({
     const productTypeMatches = !productType || template.productType === productType;
     const photoCountMatches =
       !photoCount || (photoCount >= template.minPhotos && photoCount <= template.maxPhotos);
+    const deliveryTypeMatches =
+      !deliveryType ||
+      (deliveryType === "digital"
+        ? template.productType === "digital_printable"
+        : template.productType !== "digital_printable");
+    const pricingMatches = !pricedOnly || Boolean(template.priceLabel);
 
-    return categoryMatches && sheetSizeMatches && productTypeMatches && photoCountMatches;
+    return (
+      categoryMatches &&
+      sheetSizeMatches &&
+      productTypeMatches &&
+      photoCountMatches &&
+      deliveryTypeMatches &&
+      pricingMatches
+    );
   });
 }
 

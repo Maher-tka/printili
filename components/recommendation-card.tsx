@@ -1,11 +1,11 @@
-import Image from "next/image";
 import Link from "next/link";
+import { TemplatePreviewImage } from "@/components/template-preview-image";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   categoryLabels,
   formatPhotoCountRange,
   formatSheetSizeCm,
-  productTypeLabels,
+  productTypeLabels
 } from "@/lib/templates";
 import type { TemplateRecommendation } from "@/lib/template-recommender";
 
@@ -21,10 +21,9 @@ export function RecommendationCard({ recommendation, guestToken }: Recommendatio
     <Card className="flex h-full flex-col overflow-hidden">
       <Link className="focus-ring group block" href={`/template/${template.slug}`}>
         <div className="relative aspect-[4/3] overflow-hidden bg-cream-strong">
-          <Image
+          <TemplatePreviewImage
             src={template.previewImage}
             alt={template.previewAlt}
-            fill
             className="object-cover transition duration-500 group-hover:scale-[1.03]"
             sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
           />

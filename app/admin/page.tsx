@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
-import { listOrders, orderStatusLabels, type OrderStatusId } from "@/lib/order-store";
+import { templateMakerCanvasHref } from "@/lib/admin-tool-links";
+import { cn } from "@/lib/cn";
+import { listOrders } from "@/lib/order-store";
+import {
+  isOrderStatusId,
+  orderStatusLabels,
+  orderStatuses,
+  type OrderStatusId
+} from "@/lib/order-workflow";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,39 +19,33 @@ export const metadata: Metadata = {
   description: "Private production dashboard for printable photo montage orders."
 };
 
-const statusOrder: OrderStatusId[] = [
-  "new_order",
-  "waiting_confirmation",
-  "waiting_client_approval",
-  "approved",
-  "ready_to_print",
-  "printed",
-  "cut_finished",
-  "out_for_delivery",
-  "delivered",
-  "cancelled"
-];
-
 export default async function AdminPage({
   searchParams
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [{ error }, authenticated] = await Promise.all([searchParams, isAdminAuthenticated()]);
+  const [{ error, status }, authenticated] = await Promise.all([
+    searchParams,
+    isAdminAuthenticated()
+  ]);
 
   if (!authenticated) {
     return <AdminLogin hasError={Boolean(error)} />;
   }
 
   const orders = await listOrders();
-  const counts = Object.fromEntries(statusOrder.map((status) => [status, 0])) as Record<
-    OrderStatusId,
+  const counts = Object.fromEntries(orderStatuses.map((status) => [status, 0])) as Record<
+    (typeof orderStatuses)[number],
     number
   >;
 
   orders.forEach((order) => {
     counts[order.status] += 1;
   });
+  const selectedStatus = getSelectedStatus(status);
+  const visibleOrders = selectedStatus
+    ? orders.filter((order) => order.status === selectedStatus)
+    : orders;
 
   return (
     <section className="page-shell py-10 sm:py-14" aria-labelledby="admin-heading">
@@ -56,40 +58,105 @@ export default async function AdminPage({
             Production dashboard
           </h1>
         </div>
-        <Link
-          className="focus-ring inline-flex min-h-11 items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper"
-          href="/admin/template-ai"
-        >
-          AI template extractor
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            className="focus-ring inline-flex min-h-11 items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper"
+            href="/admin/template-ai"
+          >
+            Template extractor
+          </Link>
+          <a
+            className="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-charcoal px-5 text-sm font-semibold text-charcoal"
+            href={templateMakerCanvasHref}
+          >
+            Template maker
+          </a>
+          <Link
+            className="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-5 text-sm font-semibold text-charcoal"
+            href="/admin/templates"
+          >
+            Templates
+          </Link>
+        </div>
       </div>
 
-      <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {statusOrder.map((status) => (
-          <div className="soft-card p-4" key={status}>
-            <p className="text-sm font-semibold text-charcoal-soft">{orderStatusLabels[status]}</p>
-            <p className="mt-2 text-3xl font-semibold text-charcoal">{counts[status]}</p>
-          </div>
+      <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <StatusTile
+          href="/admin"
+          isActive={!selectedStatus}
+          label="All orders"
+          value={orders.length}
+        />
+        {orderStatuses.map((status) => (
+          <StatusTile
+            href={`/admin?status=${status}`}
+            isActive={selectedStatus === status}
+            key={status}
+            label={orderStatusLabels[status]}
+            value={counts[status]}
+          />
         ))}
       </div>
 
-      <div className="soft-card mt-8 grid gap-4 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">
-            Template AI studio
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold">Turn reference collages into layouts</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-charcoal-soft">
-            Import a finished collage photo or layout image, detect photo slots and text zones, then
-            review a draft template before customers use it.
-          </p>
+      <div className="mt-8 grid gap-4 lg:grid-cols-3">
+        <div className="soft-card grid gap-4 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">
+              Template extractor
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold">Turn reference collages into layouts</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-charcoal-soft">
+              Import a finished collage photo or layout image, detect photo slots, then save the
+              template into the public category.
+            </p>
+          </div>
+          <Link className="font-semibold text-rose" href="/admin/template-ai">
+            Open extractor
+          </Link>
         </div>
-        <Link className="font-semibold text-rose" href="/admin/template-ai">
-          Open studio
-        </Link>
+        <div className="soft-card grid gap-4 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">
+              Template maker
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold">Edit extracted templates</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-charcoal-soft">
+              Open extracted templates saved by the extractor, preview their slots, then correct and
+              publish them from the maker workflow.
+            </p>
+          </div>
+          <a className="font-semibold text-rose" href={templateMakerCanvasHref}>
+            Open maker
+          </a>
+        </div>
+        <div className="soft-card grid gap-4 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">Templates</p>
+            <h2 className="mt-2 text-2xl font-semibold">Manage the catalog</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-charcoal-soft">
+              Review every template by category, edit descriptions, pricing, call-to-action text,
+              and open any layout in the maker.
+            </p>
+          </div>
+          <Link className="font-semibold text-rose" href="/admin/templates">
+            Open templates
+          </Link>
+        </div>
       </div>
 
-      <div className="soft-card mt-8 overflow-x-auto">
+      <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold text-charcoal-soft">
+          Showing {visibleOrders.length} order{visibleOrders.length === 1 ? "" : "s"}
+          {selectedStatus ? ` in ${orderStatusLabels[selectedStatus].toLowerCase()}` : ""}.
+        </p>
+        {selectedStatus ? (
+          <Link className="text-sm font-semibold text-rose" href="/admin">
+            Clear filter
+          </Link>
+        ) : null}
+      </div>
+
+      <div className="soft-card mt-4 overflow-x-auto">
         <table className="w-full min-w-[980px] border-collapse text-left text-sm">
           <thead className="bg-cream text-xs uppercase tracking-[0.08em] text-charcoal-soft">
             <tr>
@@ -112,14 +179,14 @@ export default async function AdminPage({
             </tr>
           </thead>
           <tbody>
-            {orders.length === 0 ? (
+            {visibleOrders.length === 0 ? (
               <tr>
                 <td className="px-4 py-8 text-center text-charcoal-soft" colSpan={10}>
-                  No orders yet.
+                  {selectedStatus ? "No orders in this status yet." : "No orders yet."}
                 </td>
               </tr>
             ) : (
-              orders.map((order) => (
+              visibleOrders.map((order) => (
                 <tr className="border-t border-[rgb(199_163_95_/_0.18)]" key={order.id}>
                   <td className="px-4 py-3 font-semibold">{order.orderNumber}</td>
                   <td className="px-4 py-3">{order.clientName}</td>
@@ -143,6 +210,41 @@ export default async function AdminPage({
       </div>
     </section>
   );
+}
+
+function StatusTile({
+  href,
+  isActive,
+  label,
+  value
+}: {
+  href: string;
+  isActive: boolean;
+  label: string;
+  value: number;
+}) {
+  return (
+    <Link
+      className={cn(
+        "soft-card block p-4 transition hover:-translate-y-0.5",
+        isActive && "!border-charcoal !bg-charcoal text-paper"
+      )}
+      href={href}
+    >
+      <p className={cn("text-sm font-semibold", isActive ? "text-paper/75" : "text-charcoal-soft")}>
+        {label}
+      </p>
+      <p className={cn("mt-2 text-3xl font-semibold", isActive ? "text-paper" : "text-charcoal")}>
+        {value}
+      </p>
+    </Link>
+  );
+}
+
+function getSelectedStatus(value: string | string[] | undefined): OrderStatusId | undefined {
+  const status = Array.isArray(value) ? value[0] : value;
+
+  return isOrderStatusId(status) ? status : undefined;
 }
 
 function AdminLogin({ hasError }: { hasError: boolean }) {

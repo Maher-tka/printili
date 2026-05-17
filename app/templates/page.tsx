@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { CategoryPreviewCard } from "@/components/category-preview-card";
+import { PublicPageHero } from "@/components/printili/PublicPageHero";
 import { TemplateCard } from "@/components/template-card";
 import { TemplateFilters } from "@/components/template-filters";
 import { categories } from "@/data/seed-templates";
-import { getFilteredTemplates, parseTemplateFilters } from "@/lib/templates";
+import { getFilteredPublicTemplates } from "@/lib/public-template-store";
+import { parseTemplateFilters } from "@/lib/templates";
 
 type QueryParams = Record<string, string | string[] | undefined>;
 
@@ -22,32 +24,26 @@ export const metadata: Metadata = {
   }
 };
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export default async function TemplatesPage({ searchParams }: TemplatesPageProps) {
   const filters = parseTemplateFilters((await searchParams) ?? {});
-  const templates = getFilteredTemplates(filters);
+  const templates = await getFilteredPublicTemplates(filters);
 
   return (
     <>
-      <section className="page-shell py-12 sm:py-16" aria-labelledby="templates-heading">
-        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-          <div className="max-w-3xl">
-            <h1 id="templates-heading" className="font-display text-4xl leading-tight sm:text-6xl">
-              Choose the frame before the photos become a gift
-            </h1>
-            <p className="mt-5 text-base leading-7 text-charcoal-soft">
-              Browse designs by occasion, template size, product type, or photo count. Each template
-              carries its own print size, customer preview, and admin-ready export setup.
-            </p>
-          </div>
-          <div className="grid gap-1 overflow-hidden rounded-[8px] border border-[rgb(199_163_95_/_0.24)] bg-charcoal p-2 shadow-soft sm:grid-cols-3">
-            {categories.slice(0, 3).map((category) => (
-              <div className="rounded-[6px] bg-paper/8 p-4 text-paper" key={category.id}>
-                <p className="font-display text-2xl">{category.name}</p>
-                <p className="mt-2 text-xs leading-5 text-paper/68">{category.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      <section className="page-shell printili-public-page" aria-labelledby="templates-heading">
+        <PublicPageHero
+          eyebrow="Products"
+          image="/printili/memory-decorate-space-hq.webp"
+          imageAlt="Framed collage held in warm light"
+          intro="Browse designs by occasion, product type, and photo count, then turn the right one into a finished printed keepsake."
+          primaryAction={{ href: "/start", label: "Start creating" }}
+          secondaryAction={{ href: "/occasions", label: "Shop by occasion" }}
+          titleId="templates-heading"
+          title="Choose the frame before the photos become a gift."
+        />
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {categories.map((category) => (
@@ -56,43 +52,43 @@ export default async function TemplatesPage({ searchParams }: TemplatesPageProps
         </div>
       </section>
 
-      <section className="page-shell pb-16 sm:pb-24" aria-labelledby="template-results-heading">
-        <TemplateFilters
-          selectedCategory={filters.categoryId}
-          selectedPhotoCount={filters.photoCount}
-          selectedProductType={filters.productType}
-          selectedSheetSize={filters.sheetSize}
-        />
+      <section className="printili-products-catalog" aria-labelledby="template-results-heading">
+        <div className="page-shell printili-products-catalog__inner">
+          <TemplateFilters
+            selectedCategory={filters.categoryId}
+            selectedDeliveryType={filters.deliveryType}
+            selectedPhotoCount={filters.photoCount}
+            selectedPricedOnly={filters.pricedOnly}
+            selectedProductType={filters.productType}
+            selectedSheetSize={filters.sheetSize}
+          />
 
-        <div className="mt-9 flex items-end justify-between gap-4">
-          <div>
-            <h2
-              id="template-results-heading"
-              className="font-display text-3xl leading-tight sm:text-4xl"
-            >
-              Template library
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-charcoal-soft">
+          <div className="printili-products-catalog__heading">
+            <div>
+              <p>Design library</p>
+              <h2 id="template-results-heading">Choose the keepsake style.</h2>
+            </div>
+            <span>
               {templates.length} matching design{templates.length === 1 ? "" : "s"}
-            </p>
+            </span>
           </div>
-        </div>
 
-        {templates.length > 0 ? (
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {templates.map((template) => (
-              <TemplateCard key={template.id} template={template} />
-            ))}
-          </div>
-        ) : (
-          <div className="soft-card mt-6 p-7">
-            <h3 className="text-xl font-semibold">No templates match these filters yet.</h3>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-charcoal-soft">
-              Try a wider photo count or choose another category. The template library is built to
-              grow as the product catalog expands.
-            </p>
-          </div>
-        )}
+          {templates.length > 0 ? (
+            <div className="printili-template-grid-premium">
+              {templates.map((template) => (
+                <TemplateCard key={template.id} template={template} />
+              ))}
+            </div>
+          ) : (
+            <div className="printili-template-empty">
+              <h3>No templates match these filters yet.</h3>
+              <p>
+                Try a wider photo count or choose another category. The template library is built
+                to grow as the product catalog expands.
+              </p>
+            </div>
+          )}
+        </div>
       </section>
     </>
   );

@@ -19,45 +19,37 @@ export function RecommendedTemplates() {
 
   return (
     <section
-      className="printili-shell scroll-mt-8 py-8 sm:py-10"
+      className="printili-shell scroll-mt-8 py-4 sm:py-5"
       id="template-selector"
       aria-labelledby="recommended-heading"
     >
-      <div className="mb-5 flex items-end justify-between gap-4">
-        <div>
+      <div className="printili-section-title-row mb-4">
+        <div className="printili-section-title">
           <h2
             id="recommended-heading"
             className="font-display text-3xl leading-tight text-charcoal"
           >
             Recommended Templates
           </h2>
-          <p className="mt-2 text-sm leading-6 text-charcoal-soft">
-            Start with a proven print layout, then upload photos and edit every crop.
-          </p>
         </div>
         <Link className="hidden text-sm font-bold text-rose sm:inline-flex" href="/templates">
           View all templates &rarr;
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="printili-template-grid">
         {templates.map((template) =>
           template ? (
             <Link
-              className="group overflow-hidden rounded-[8px] border border-[rgb(199_163_95_/_0.22)] bg-white/72 shadow-[0_16px_38px_rgb(45_41_38_/_0.08)] transition hover:-translate-y-1 hover:bg-paper hover:shadow-[0_22px_48px_rgb(45_41_38_/_0.14)]"
+              className="group printili-template-card overflow-hidden rounded-[8px] border border-[rgb(199_163_95_/_0.22)] bg-white/72 shadow-[0_16px_38px_rgb(45_41_38_/_0.08)] transition hover:-translate-y-1 hover:bg-paper hover:shadow-[0_22px_48px_rgb(45_41_38_/_0.14)]"
               href={`/template/${template.slug}`}
               key={template.id}
             >
-              <div className="relative aspect-[4/5] bg-cream">
-                <Image
-                  src={template.previewImage}
-                  alt={template.previewAlt}
-                  fill
-                  className="object-cover transition duration-500 group-hover:scale-[1.04]"
-                  sizes="(min-width: 1024px) 16vw, (min-width: 640px) 33vw, 100vw"
-                />
-                <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-charcoal/42 to-transparent" />
-              </div>
+              <TemplateMiniPoster
+                slug={template.slug}
+                src={template.previewImage}
+                alt={template.previewAlt}
+              />
               <div className="p-4 text-center">
                 <h3 className="text-sm font-extrabold leading-snug text-charcoal">
                   {template.name}
@@ -72,4 +64,94 @@ export function RecommendedTemplates() {
       </div>
     </section>
   );
+}
+
+function TemplateMiniPoster({ slug, src, alt }: { slug: string; src: string; alt: string }) {
+  const tiles = Array.from({ length: 16 }, (_, index) => `${src}-${index}`);
+
+  return (
+    <div className={`printili-template-poster printili-template-poster--${posterKind(slug)}`}>
+      <span className="sr-only">{alt}</span>
+      {slug === "baby-first-year-poster" ? (
+        <>
+          <strong>ONE</strong>
+          <em>Year of Love</em>
+          <div className="printili-template-poster__month-grid">
+            {tiles.slice(0, 12).map((key) => (
+              <span className="relative block" key={key}>
+                <Image
+                  src={src}
+                  alt=""
+                  width={54}
+                  height={70}
+                  sizes="42px"
+                  className="h-full w-full object-cover"
+                />
+              </span>
+            ))}
+          </div>
+        </>
+      ) : slug === "couple-heart-collage" ? (
+        <>
+          <div className="printili-template-poster__heart">
+            {tiles.map((key) => (
+              <span className="relative block" key={key}>
+                <Image
+                  src={src}
+                  alt=""
+                  width={42}
+                  height={42}
+                  sizes="34px"
+                  className="h-full w-full object-cover"
+                />
+              </span>
+            ))}
+          </div>
+          <strong>You & Me</strong>
+          <em>Always & Forever</em>
+        </>
+      ) : slug === "birthday-number-collage" ? (
+        <>
+          <div className="printili-template-poster__number">25</div>
+          <strong>Happy Birthday</strong>
+        </>
+      ) : slug === "wedding-welcome-poster" ? (
+        <>
+          <div className="printili-template-poster__floral" />
+          <strong>Welcome</strong>
+          <em>to our wedding</em>
+          <span>Riya & Ajun</span>
+        </>
+      ) : slug === "family-memory-poster" ? (
+        <>
+          <div className="printili-template-poster__word">FAMILY</div>
+          <em>where life begins and love never ends</em>
+        </>
+      ) : (
+        <div className="printili-template-poster__cut-grid">
+          {tiles.slice(0, 9).map((key) => (
+            <span className="relative block" key={key}>
+              <Image
+                src={src}
+                alt=""
+                width={58}
+                height={74}
+                sizes="48px"
+                className="h-full w-full object-cover"
+              />
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function posterKind(slug: string) {
+  if (slug.includes("heart")) return "heart";
+  if (slug.includes("birthday")) return "birthday";
+  if (slug.includes("wedding")) return "wedding";
+  if (slug.includes("family")) return "family";
+  if (slug.includes("polaroid")) return "cut";
+  return "baby";
 }

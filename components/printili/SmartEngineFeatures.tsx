@@ -1,57 +1,46 @@
 const features = [
   {
-    title: "Smart template matching",
-    description: "We suggest layouts from your occasion, photo count, and photo orientation."
+    title: "Smart matching",
+    description: "Find a layout that suits your photos, occasion, and final print."
   },
   {
-    title: "Drag & drop placement",
-    description: "Move photos into the right story order without complex design software."
+    title: "Easy placement",
+    description: "Arrange every memory in the order that tells the story best."
   },
   {
-    title: "Move & zoom inside slot",
-    description: "Fine-tune every face, detail, and memory inside its printed frame."
+    title: "Move and zoom",
+    description: "Keep faces, details, and favorite moments framed beautifully."
   },
   {
-    title: "Blur-fill background",
-    description: "Keep full photos visible while naturally filling empty areas."
+    title: "Natural fill",
+    description: "Keep full photos visible while soft backgrounds fill the page."
   },
   {
-    title: "Auto photo enhancement",
-    description: "A production-ready placeholder for color, brightness, and clarity checks."
-  },
-  {
-    title: "Shape collage masks",
-    description: "Heart, number, silhouette, and custom shape layouts are ready to grow."
-  },
-  {
-    title: "A4/A3 print validation",
-    description: "Templates carry size, margins, bleed, and DPI rules for print confidence."
+    title: "Print-safe checks",
+    description: "Keep size, margins, bleed, and sharpness under control."
   },
   {
     title: "Protected preview",
-    description: "Customers see a beautiful proof while final clean files stay private."
+    description: "Approve the look before the clean print file is prepared."
   }
 ];
 
 export function SmartEngineFeatures() {
   return (
-    <section className="printili-shell py-8 sm:py-10" aria-labelledby="smart-engine-heading">
+    <section className="printili-home-panel" aria-labelledby="smart-engine-heading">
       <div className="mb-5">
         <h2 id="smart-engine-heading" className="font-display text-3xl leading-tight text-charcoal">
-          Smart Engine. Beautiful Results.
+          Smart tools. Beautiful results.
         </h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-charcoal-soft">
-          The platform feels simple for clients, but keeps practical print logic underneath every
-          recommendation and preview.
+        <p className="mt-2 max-w-xl text-sm leading-6 text-charcoal-soft">
+          Everything stays simple for the customer while the print details are handled quietly in
+          the background.
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {features.map((feature, index) => (
-          <article
-            className="rounded-[8px] border border-[rgb(199_163_95_/_0.2)] bg-white/68 p-4 shadow-[0_14px_34px_rgb(45_41_38_/_0.06)]"
-            key={feature.title}
-          >
+          <article className="printili-feature-card" key={feature.title}>
             <span className="inline-flex size-9 items-center justify-center rounded-full bg-rose-soft text-sm font-black text-rose">
               {index + 1}
             </span>

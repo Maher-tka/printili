@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CustomerEditor } from "@/components/customer-editor";
-import { getTemplateEditorLayout } from "@/data/template-layouts";
 import { getGuestProject } from "@/lib/project-store";
-import { getTemplateBySlug } from "@/lib/templates";
+import {
+  getPublicTemplateBySlug,
+  getPublicTemplateEditorLayout
+} from "@/lib/public-template-store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,17 +36,13 @@ export default async function ProjectEditorPage({ params }: ProjectEditorPlaceho
   }
 
   const template = project.chosenTemplateSlug
-    ? getTemplateBySlug(project.chosenTemplateSlug)
+    ? await getPublicTemplateBySlug(project.chosenTemplateSlug)
     : null;
 
   if (template) {
-    return (
-      <CustomerEditor
-        layout={getTemplateEditorLayout(template.slug)}
-        project={project}
-        template={template}
-      />
-    );
+    const layout = await getPublicTemplateEditorLayout(template.slug);
+
+    return <CustomerEditor layout={layout} project={project} template={template} />;
   }
 
   return (

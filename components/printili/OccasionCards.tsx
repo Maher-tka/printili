@@ -3,33 +3,34 @@ import Link from "next/link";
 import { categories } from "@/data/seed-templates";
 
 const occasions = [
+  { categoryId: "cut_sheet", label: "Mini Polaroids", icon: "grid" },
   { categoryId: "baby", label: "Baby Memories", icon: "teddy" },
   { categoryId: "couple", label: "Couple Love", icon: "heart" },
   { categoryId: "birthday", label: "Birthday Special", icon: "cake" },
   { categoryId: "family", label: "Family Moments", icon: "family" },
   { categoryId: "wedding", label: "Wedding Prints", icon: "rings" },
-  { categoryId: "custom", label: "Mother/Father Gifts", icon: "gift" },
-  { categoryId: "cut_sheet", label: "Cuttable Photo Sheets", icon: "grid" }
+  { categoryId: "custom", label: "Mother/Father Gifts", icon: "gift" }
 ];
 
 export function OccasionCards() {
   return (
-    <section className="printili-shell py-8 sm:py-10" aria-labelledby="occasion-heading">
-      <div className="mb-5 flex items-end justify-between gap-4">
-        <div>
+    <section
+      className="printili-shell py-4 sm:py-5"
+      id="occasions"
+      aria-labelledby="occasion-heading"
+    >
+      <div className="printili-section-title-row mb-4">
+        <div className="printili-section-title">
           <h2 id="occasion-heading" className="font-display text-3xl leading-tight text-charcoal">
             Shop by Occasion
           </h2>
-          <p className="mt-2 text-sm leading-6 text-charcoal-soft">
-            Choose the kind of memory first. Printili handles the layout and print size after.
-          </p>
         </div>
         <Link className="hidden text-sm font-bold text-rose sm:inline-flex" href="/templates">
           View all templates &rarr;
         </Link>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+      <div className="printili-occasion-grid">
         {occasions.map((occasion) => {
           const category = categories.find((item) => item.id === occasion.categoryId);
 
@@ -39,7 +40,7 @@ export function OccasionCards() {
 
           return (
             <Link
-              className="group overflow-hidden rounded-[8px] border border-[rgb(199_163_95_/_0.2)] bg-white/62 p-3 shadow-[0_14px_34px_rgb(45_41_38_/_0.07)] transition hover:-translate-y-1 hover:bg-paper hover:shadow-[0_18px_44px_rgb(45_41_38_/_0.12)]"
+              className="group printili-occasion-card overflow-hidden rounded-[8px] border border-[rgb(199_163_95_/_0.2)] bg-white/66 p-3 shadow-[0_14px_34px_rgb(45_41_38_/_0.07)] transition hover:-translate-y-1 hover:bg-paper hover:shadow-[0_18px_44px_rgb(45_41_38_/_0.12)]"
               href={`/templates/${category.slug}`}
               key={occasion.label}
             >
@@ -47,12 +48,13 @@ export function OccasionCards() {
                 <Image
                   src={category.image}
                   alt={category.imageAlt}
-                  fill
-                  className="object-cover transition duration-500 group-hover:scale-[1.04]"
+                  width={420}
+                  height={315}
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
                   sizes="(min-width: 1024px) 180px, 50vw"
                 />
               </div>
-              <div className="flex min-h-24 flex-col items-center justify-center text-center">
+              <div className="flex flex-col items-center justify-center text-center">
                 <OccasionIcon type={occasion.icon} />
                 <h3 className="mt-3 text-sm font-extrabold leading-tight text-charcoal">
                   {occasion.label}

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Printili Template Editor UX Research</title>
+    <style>
+      body {
+        margin: 0;
+        background: #f6f7f9;
+        color: #16181d;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        line-height: 1.55;
+      }
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 40px 20px 56px;
+      }
+      h1,
+      h2 {
+        line-height: 1.15;
+      }
+      .callout {
+        border: 1px solid #bed7ff;
+        border-radius: 8px;
+        background: #eaf3ff;
+        padding: 16px 18px;
+      }
+      img {
+        width: 100%;
+        border-radius: 8px;
+        box-shadow: 0 18px 45px rgba(23, 28, 38, 0.14);
+      }
+      li {
+        margin: 0.35rem 0;
+      }
+      a {
+        color: #3857d6;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Design Research: Printili Template Editor UX</h1>
+      <section class="callout">
+        <p>
+          Printili is moving in the right direction by combining extractor, maker, public catalog,
+          and admin controls. The biggest gap against leading tools is guided confidence: smart
+          auto-layout, visible quality checks, stronger customer preview, and a clearer production
+          handoff.
+        </p>
+      </section>
+      <h2>Current State</h2>
+      <img src="references/current-template-maker.png" alt="Current Template Maker screen" />
+      <p>
+        The Template Maker now has a precision Align panel with key-object selection, spacing, and
+        match-size tools, plus a safer layer-list way to pick the key frame.
+      </p>
+      <h2>Next Recommendations</h2>
+      <ol>
+        <li>Add customer-side smart crop and face-aware fit before checkout.</li>
+        <li>
+          Add template quality scoring: low-resolution, empty slot, bleed, and safe-margin warnings.
+        </li>
+        <li>
+          Add auto-layout assist that suggests or generates a balanced layout from uploaded photos.
+        </li>
+        <li>Add public filters for occasion, photo count, format, price, and delivery type.</li>
+        <li>Add side-by-side customer preview: screen preview plus print-safe PDF preview.</li>
+        <li>Add template version history and duplicate-as-new in Template Maker.</li>
+        <li>Add undo/redo history to Template Maker before more destructive editing tools.</li>
+        <li>Add production dashboard states from paid to delivered.</li>
+        <li>
+          Add social proof: reviews, real examples, delivery guarantees, and quality materials.
+        </li>
+        <li>
+          Add guided mobile upload flow with progress, reorder, crop status, and missing-photo
+          reminders.
+        </li>
+      </ol>
+      <h2>Sources</h2>
+      <ul>
+        <li>
+          <a
+            href="https://helpx.adobe.com/ie/illustrator/desktop/manage-objects/arrange-objects/align-and-distribute-objects.html"
+            >Adobe Illustrator align to key object</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://helpx.adobe.com/ie/illustrator/desktop/manage-objects/arrange-objects/distribute-objects-by-specific-distances.html"
+            >Adobe Illustrator exact distribute spacing</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://help.figma.com/hc/en-us/articles/360039956914-Adjust-alignment-rotation-position-and-dimensions"
+            >Figma alignment/distribution/tidy up</a
+          >
+        </li>
+        <li>
+          <a href="https://www.canva.com/create/photo-collages/">Canva photo collage maker</a>
+        </li>
+        <li><a href="https://www.shutterfly.com/photo-books/">Shutterfly photo books</a></li>
+        <li>
+          <a href="https://apps.apple.com/us/app/mixbook-photo-book-creator/id1562974920"
+            >Mixbook app listing</a
+          >
+        </li>
+        <li>
+          <a href="https://www.adobe.com/express/create/photo-collage"
+            >Adobe Express photo collage maker</a
+          >
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>

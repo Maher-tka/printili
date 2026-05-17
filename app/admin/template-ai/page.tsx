@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { CodexThreadLauncher } from "@/components/codex-thread-launcher";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import {
+  mainProjectThreadHref,
+  templateExtractorPrompt,
+  templateExtractorThreadHref
+} from "@/lib/admin-tool-links";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -46,8 +52,9 @@ export default async function AdminTemplateAiPage() {
             Extract a collage layout
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-charcoal-soft">
-            Use a real finished collage photo, an internet reference URL, or a clean layout image to
-            prepare photo slots, text fields, and print metadata for admin review.
+            Use a real finished collage photo for the public preview, then add an optional SVG
+            layout export when you want exact photo rectangles and exact white gaps. After
+            extraction you can review and correct the slots before customers use it.
           </p>
 
           <form
@@ -74,11 +81,21 @@ export default async function AdminTemplateAiPage() {
             <Field label="Internet reference URL" name="sourceUrl" />
 
             <label className="grid gap-2 text-sm font-semibold text-charcoal">
-              Upload reference image
+              Upload preview image
               <input
                 accept="image/*"
                 className="focus-ring rounded-[8px] border border-dashed border-[rgb(199_163_95_/_0.45)] bg-paper px-3 py-3 text-sm font-normal"
                 name="referenceImage"
+                type="file"
+              />
+            </label>
+
+            <label className="grid gap-2 text-sm font-semibold text-charcoal">
+              Optional exact layout SVG
+              <input
+                accept=".svg,image/svg+xml"
+                className="focus-ring rounded-[8px] border border-dashed border-[rgb(199_163_95_/_0.45)] bg-paper px-3 py-3 text-sm font-normal"
+                name="layoutFile"
                 type="file"
               />
             </label>
@@ -127,16 +144,16 @@ export default async function AdminTemplateAiPage() {
               <textarea
                 className="focus-ring min-h-28 resize-none rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 py-2 text-sm font-normal"
                 name="notes"
-                placeholder="Example: keep the title editable, detect captions, make the main image a hero slot."
+                placeholder="Example: family poster, use the SVG boxes exactly, ignore the handwritten title."
               />
             </label>
 
             <div className="grid gap-3 text-sm text-charcoal-soft sm:grid-cols-2">
               {[
                 ["detectSlots", "Detect photo slots"],
-                ["detectText", "Detect editable text"],
+                ["detectText", "Ignore text for now"],
                 ["normalize", "Normalize 0-1 geometry"],
-                ["draftOnly", "Save as admin draft first"]
+                ["draftOnly", "Open review after extraction"]
               ].map(([name, label]) => (
                 <label
                   className="flex items-center gap-3 rounded-[8px] bg-cream px-3 py-3"
@@ -158,7 +175,7 @@ export default async function AdminTemplateAiPage() {
               className="focus-ring min-h-12 rounded-full bg-charcoal px-5 text-sm font-semibold text-paper"
               type="submit"
             >
-              Generate draft extraction
+              Extract and review template
             </button>
           </form>
         </div>
@@ -168,17 +185,26 @@ export default async function AdminTemplateAiPage() {
             <h2 className="text-xl font-semibold">Draft output</h2>
             <div className="mt-4 grid gap-3 text-sm leading-6 text-charcoal-soft">
               <p>Normalized photo slots with x, y, width, height, shape, and z-index.</p>
-              <p>Editable text zones for names, dates, quotes, captions, and birth details.</p>
-              <p>Admin review before the layout becomes active for customers.</p>
+              <p>SVG imports use the black rectangle geometry and skip red guide boxes.</p>
+              <p>The saved template opens in a private review screen before final public QA.</p>
             </div>
           </div>
           <div className="soft-card p-5">
-            <h2 className="text-xl font-semibold">Next AI wiring</h2>
+            <h2 className="text-xl font-semibold">Extractor role</h2>
             <p className="mt-3 text-sm leading-6 text-charcoal-soft">
-              Connect this intake to a vision model that detects rectangles, masks, text baselines,
-              and poster safe margins from the reference image.
+              The extractor turns a reference into reusable photo boxes. SVG files are read exactly;
+              raster photos are scanned when no SVG layout is provided.
             </p>
           </div>
+          <CodexThreadLauncher
+            chatName="Template extractor chat"
+            copyPromptLabel="Copy extractor prompt"
+            description="Use this focused Codex chat for detection logic, SVG/OpenCV improvements, and saved layout data."
+            mainThreadHref={mainProjectThreadHref}
+            prompt={templateExtractorPrompt}
+            promptLabel="Extractor prompt"
+            threadHref={templateExtractorThreadHref}
+          />
         </aside>
       </div>
     </section>

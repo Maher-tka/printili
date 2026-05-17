@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { CustomerEditor } from "@/components/customer-editor";
-import { getTemplateEditorLayout } from "@/data/template-layouts";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getGuestProject } from "@/lib/project-store";
-import { getTemplateBySlug } from "@/lib/templates";
+import {
+  getPublicTemplateBySlug,
+  getPublicTemplateEditorLayout
+} from "@/lib/public-template-store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,18 +39,13 @@ export default async function AdminProjectEditorPage({ params }: AdminProjectEdi
     notFound();
   }
 
-  const template = getTemplateBySlug(project.chosenTemplateSlug);
+  const template = await getPublicTemplateBySlug(project.chosenTemplateSlug);
 
   if (!template) {
     notFound();
   }
 
-  return (
-    <CustomerEditor
-      adminMode
-      layout={getTemplateEditorLayout(template.slug)}
-      project={project}
-      template={template}
-    />
-  );
+  const layout = await getPublicTemplateEditorLayout(template.slug);
+
+  return <CustomerEditor adminMode layout={layout} project={project} template={template} />;
 }

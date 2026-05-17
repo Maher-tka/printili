@@ -1,11 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import { getTemplateEditorLayout } from "@/data/template-layouts";
 import { updateOrderGeneratedFiles, type OrderSummary } from "@/lib/order-store";
 import { getGuestProject } from "@/lib/project-store";
-import { getTemplateBySlug } from "@/lib/templates";
-import type { TemplateSeed, TemplateSlotSeed } from "@/types/templates";
+import {
+  getPublicTemplateBySlug,
+  getPublicTemplateEditorLayout
+} from "@/lib/public-template-store";
+import type { TemplateEditorLayout, TemplateSeed, TemplateSlotSeed } from "@/types/templates";
 
 const exportRoot = path.join(process.cwd(), ".local-storage", "exports");
 
@@ -16,13 +18,13 @@ export async function generatePrintExport(order: OrderSummary) {
     throw new Error("Project or template was not found for print export.");
   }
 
-  const template = getTemplateBySlug(project.chosenTemplateSlug);
+  const template = await getPublicTemplateBySlug(project.chosenTemplateSlug);
 
   if (!template) {
     throw new Error("Template was not found for print export.");
   }
 
-  const layout = getTemplateEditorLayout(template.slug);
+  const layout = await getPublicTemplateEditorLayout(template.slug);
   const dimensions = getPrintDimensions(template);
   const base = sharp({
     create: {
@@ -78,6 +80,7 @@ export async function generatePrintExport(order: OrderSummary) {
   composites.push({
     input: renderTextAndGuidesSvg({
       template,
+      layout,
       textValues: project.textValues,
       widthPx: dimensions.widthPx,
       heightPx: dimensions.heightPx
@@ -203,16 +206,17 @@ async function renderSlotImage({
 
 function renderTextAndGuidesSvg({
   template,
+  layout,
   textValues,
   widthPx,
   heightPx
 }: {
   template: TemplateSeed;
+  layout: TemplateEditorLayout;
   textValues: Record<string, string>;
   widthPx: number;
   heightPx: number;
 }) {
-  const layout = getTemplateEditorLayout(template.slug);
   const textNodes = layout.textFields
     .map((field) => {
       const value = escapeXml(textValues[field.key] ?? field.defaultValue ?? "");

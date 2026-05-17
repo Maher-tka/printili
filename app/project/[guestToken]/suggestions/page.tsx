@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RecommendationCard } from "@/components/recommendation-card";
-import { featuredTemplates } from "@/data/seed-templates";
 import { summarizePhotoAnalysis } from "@/lib/photo-analyzer";
 import { getGuestProject } from "@/lib/project-store";
+import { getAllPublicTemplates } from "@/lib/public-template-store";
 import {
   countPhotoOrientations,
   recommendTemplates as recommendProjectTemplates
@@ -38,11 +38,12 @@ export default async function ProjectSuggestionsPage({ params }: ProjectSuggesti
   }
 
   const analysisSummary = summarizePhotoAnalysis(project.photos);
+  const templates = await getAllPublicTemplates();
   const recommendations = recommendProjectTemplates({
     category: project.category,
     photoCount: project.photos.length,
     orientationCounts: countPhotoOrientations(project.photos),
-    templates: featuredTemplates,
+    templates,
     limit: 6
   });
 
@@ -157,7 +158,7 @@ export default async function ProjectSuggestionsPage({ params }: ProjectSuggesti
             </h2>
             <p className="mt-2 text-sm leading-6 text-charcoal-soft">
               Top {recommendations.length} recommendation
-              {recommendations.length === 1 ? "" : "s"} from the seed library.
+              {recommendations.length === 1 ? "" : "s"} from the template library.
             </p>
           </div>
           <Link

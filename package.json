@@ -23,6 +23,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@techstark/opencv-js": "^4.12.0-release.1",
     "dotenv": "^17.4.2",
     "next": "latest",
     "pg": "^8.20.0",

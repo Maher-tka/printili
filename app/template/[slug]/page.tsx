@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { TemplatePreviewImage } from "@/components/template-preview-image";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { featuredTemplates } from "@/data/seed-templates";
+import { getPhotoSource } from "@/lib/photo-url";
+import { getPublicTemplateBySlug } from "@/lib/public-template-store";
 import {
   categoryLabels,
   formatPhotoCountRange,
   formatSheetSizeCm,
   getCategoryById,
-  getTemplateBySlug,
   productTypeLabels
 } from "@/lib/templates";
 
@@ -24,9 +25,12 @@ export function generateStaticParams() {
   }));
 }
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function generateMetadata({ params }: TemplateDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const template = getTemplateBySlug(slug);
+  const template = await getPublicTemplateBySlug(slug);
 
   if (!template) {
     return {
@@ -42,7 +46,7 @@ export async function generateMetadata({ params }: TemplateDetailPageProps): Pro
       description: template.seoDescription,
       images: [
         {
-          url: template.previewImage,
+          url: getPhotoSource(template.previewImage),
           alt: template.previewAlt
         }
       ]
@@ -52,7 +56,7 @@ export async function generateMetadata({ params }: TemplateDetailPageProps): Pro
 
 export default async function TemplateDetailPage({ params }: TemplateDetailPageProps) {
   const { slug } = await params;
-  const template = getTemplateBySlug(slug);
+  const template = await getPublicTemplateBySlug(slug);
 
   if (!template) {
     notFound();
@@ -72,10 +76,9 @@ export default async function TemplateDetailPage({ params }: TemplateDetailPageP
       <div className="mt-8 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
         <div className="soft-card overflow-hidden">
           <div className="relative aspect-[4/5] bg-cream-strong sm:aspect-[5/4] lg:aspect-[4/5]">
-            <Image
+            <TemplatePreviewImage
               src={template.previewImage}
               alt={template.previewAlt}
-              fill
               priority
               className="object-cover"
               sizes="(min-width: 1024px) 52vw, 100vw"
@@ -99,10 +102,15 @@ export default async function TemplateDetailPage({ params }: TemplateDetailPageP
             {template.name}
           </h1>
           <p className="mt-5 text-base leading-7 text-charcoal-soft">{template.description}</p>
+          {template.priceLabel ? (
+            <p className="mt-5 inline-flex rounded-full bg-cream px-4 py-2 text-sm font-semibold text-charcoal">
+              {template.priceLabel}
+            </p>
+          ) : null}
 
           <div className="mt-8">
             <ButtonLink href={`/start?template=${template.slug}`} size="lg">
-              Start with this design
+              {template.ctaLabel ?? "Start with this design"}
             </ButtonLink>
           </div>
 

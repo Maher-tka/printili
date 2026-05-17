@@ -88,6 +88,8 @@ export type TemplateSeed = {
   tags: string[];
   isFeatured: boolean;
   description: string;
+  priceLabel?: string;
+  ctaLabel?: string;
   bestFor: string[];
   printNotes: string[];
   previewImage: string;

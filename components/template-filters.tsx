@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { categories } from "@/data/seed-templates";
 import { productTypeLabels } from "@/lib/templates";
+import type { DeliveryType } from "@/lib/templates";
 import type { ProductType, SheetSize, TemplateCategoryId } from "@/types/templates";
 
 type TemplateFiltersProps = {
@@ -7,6 +9,8 @@ type TemplateFiltersProps = {
   selectedSheetSize?: SheetSize;
   selectedProductType?: ProductType;
   selectedPhotoCount?: number;
+  selectedDeliveryType?: DeliveryType;
+  selectedPricedOnly?: boolean;
 };
 
 const sheetSizes: SheetSize[] = ["A4", "A3"];
@@ -16,17 +20,28 @@ export function TemplateFilters({
   selectedCategory,
   selectedSheetSize,
   selectedProductType,
-  selectedPhotoCount
+  selectedPhotoCount,
+  selectedDeliveryType,
+  selectedPricedOnly
 }: TemplateFiltersProps) {
+  const hasActiveFilters = Boolean(
+    selectedCategory ||
+    selectedSheetSize ||
+    selectedProductType ||
+    selectedPhotoCount ||
+    selectedDeliveryType ||
+    selectedPricedOnly
+  );
+
   return (
     <form
       action="/templates"
-      className="soft-card grid gap-4 bg-[#fffdf8]/94 p-4 sm:grid-cols-2 lg:grid-cols-[1.1fr_0.9fr_0.9fr_0.8fr_auto]"
+      className="printili-template-filters"
     >
-      <label className="grid gap-2 text-sm font-semibold text-charcoal">
-        Category
+      <label className="printili-template-filters__field">
+        Occasion
         <select
-          className="focus-ring min-h-12 rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper px-4 text-sm font-medium text-charcoal shadow-[inset_0_1px_0_rgb(255_255_255_/_0.75)]"
+          className="focus-ring printili-template-filters__control"
           defaultValue={selectedCategory ?? ""}
           name="category"
         >
@@ -39,10 +54,10 @@ export function TemplateFilters({
         </select>
       </label>
 
-      <label className="grid gap-2 text-sm font-semibold text-charcoal">
+      <label className="printili-template-filters__field">
         Sheet size
         <select
-          className="focus-ring min-h-12 rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper px-4 text-sm font-medium text-charcoal shadow-[inset_0_1px_0_rgb(255_255_255_/_0.75)]"
+          className="focus-ring printili-template-filters__control"
           defaultValue={selectedSheetSize ?? ""}
           name="sheetSize"
         >
@@ -55,10 +70,10 @@ export function TemplateFilters({
         </select>
       </label>
 
-      <label className="grid gap-2 text-sm font-semibold text-charcoal">
-        Product type
+      <label className="printili-template-filters__field">
+        Format
         <select
-          className="focus-ring min-h-12 rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper px-4 text-sm font-medium text-charcoal shadow-[inset_0_1px_0_rgb(255_255_255_/_0.75)]"
+          className="focus-ring printili-template-filters__control"
           defaultValue={selectedProductType ?? ""}
           name="productType"
         >
@@ -71,10 +86,10 @@ export function TemplateFilters({
         </select>
       </label>
 
-      <label className="grid gap-2 text-sm font-semibold text-charcoal">
+      <label className="printili-template-filters__field">
         Photo count
         <input
-          className="focus-ring min-h-12 rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper px-4 text-sm font-medium text-charcoal shadow-[inset_0_1px_0_rgb(255_255_255_/_0.75)]"
+          className="focus-ring printili-template-filters__control"
           defaultValue={selectedPhotoCount ?? ""}
           min="1"
           name="photoCount"
@@ -83,10 +98,45 @@ export function TemplateFilters({
         />
       </label>
 
-      <div className="flex items-end gap-2">
-        <button className="focus-ring min-h-12 w-full rounded-full bg-charcoal px-5 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)]">
+      <label className="printili-template-filters__field">
+        Delivery
+        <select
+          className="focus-ring printili-template-filters__control"
+          defaultValue={selectedDeliveryType ?? ""}
+          name="deliveryType"
+        >
+          <option value="">Any delivery</option>
+          <option value="physical">Printed delivery</option>
+          <option value="digital">Digital file</option>
+        </select>
+      </label>
+
+      <div className="printili-template-filters__action">
+        <button className="focus-ring">
           Filter
         </button>
+      </div>
+
+      <div className="printili-template-filters__footer">
+        <label>
+          <input
+            className="size-4 accent-rose"
+            defaultChecked={selectedPricedOnly}
+            name="pricedOnly"
+            type="checkbox"
+            value="1"
+          />
+          Show priced templates only
+        </label>
+        {hasActiveFilters ? (
+          <Link href="/templates">
+            Clear filters
+          </Link>
+        ) : (
+          <span>
+            Narrow by occasion, format, photo count, and delivery style.
+          </span>
+        )}
       </div>
     </form>
   );

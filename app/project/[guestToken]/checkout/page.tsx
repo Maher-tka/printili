@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MontagePreview } from "@/components/montage-preview";
-import { getTemplateEditorLayout } from "@/data/template-layouts";
 import { getGuestProject } from "@/lib/project-store";
-import { formatSheetSizeCm, getTemplateBySlug } from "@/lib/templates";
+import {
+  getPublicTemplateBySlug,
+  getPublicTemplateEditorLayout
+} from "@/lib/public-template-store";
+import { formatSheetSizeCm } from "@/lib/templates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -32,7 +35,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
   }
 
   const template = project.chosenTemplateSlug
-    ? getTemplateBySlug(project.chosenTemplateSlug)
+    ? await getPublicTemplateBySlug(project.chosenTemplateSlug)
     : null;
 
   if (!template) {
@@ -48,6 +51,8 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
       </section>
     );
   }
+
+  const layout = await getPublicTemplateEditorLayout(template.slug);
 
   return (
     <section className="page-shell py-10 sm:py-14" aria-labelledby="checkout-heading">
@@ -205,7 +210,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
           </div>
           <div className="rounded-[8px] bg-[rgb(45_41_38_/_0.06)] p-3 shadow-soft">
             <MontagePreview
-              layout={getTemplateEditorLayout(template.slug)}
+              layout={layout}
               photos={project.photos}
               placements={project.placements}
               protectedPreview

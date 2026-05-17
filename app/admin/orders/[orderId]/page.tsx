@@ -3,31 +3,29 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { MontagePreview } from "@/components/montage-preview";
-import { getTemplateEditorLayout } from "@/data/template-layouts";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
-import { getOrderById, orderStatusLabels, type OrderStatusId } from "@/lib/order-store";
+import { cn } from "@/lib/cn";
+import { getOrderById } from "@/lib/order-store";
+import {
+  getOrderStatusActions,
+  isOrderStatusAtLeast,
+  orderStatusLabels,
+  orderStatuses
+} from "@/lib/order-workflow";
 import { getGuestProject } from "@/lib/project-store";
-import { formatSheetSizeCm, getTemplateBySlug } from "@/lib/templates";
+import {
+  getPublicTemplateBySlug,
+  getPublicTemplateEditorLayout
+} from "@/lib/public-template-store";
+import { formatSheetSizeCm } from "@/lib/templates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type AdminOrderPageProps = {
   params: Promise<{ orderId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
-
-const statusActions: Array<{ status: OrderStatusId; label: string }> = [
-  { status: "waiting_confirmation", label: "Mark waiting confirmation" },
-  { status: "waiting_confirmation", label: "Mark confirmed" },
-  { status: "waiting_client_approval", label: "Mark waiting client approval" },
-  { status: "approved", label: "Mark approved" },
-  { status: "ready_to_print", label: "Mark ready to print" },
-  { status: "printed", label: "Mark printed" },
-  { status: "cut_finished", label: "Mark cut/finished" },
-  { status: "out_for_delivery", label: "Mark out for delivery" },
-  { status: "delivered", label: "Mark delivered" },
-  { status: "cancelled", label: "Cancel order" }
-];
 
 export async function generateMetadata({ params }: AdminOrderPageProps): Promise<Metadata> {
   const { orderId } = await params;
@@ -39,7 +37,7 @@ export async function generateMetadata({ params }: AdminOrderPageProps): Promise
   };
 }
 
-export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
+export default async function AdminOrderPage({ params, searchParams }: AdminOrderPageProps) {
   const authenticated = await isAdminAuthenticated();
 
   if (!authenticated) {
@@ -55,8 +53,16 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
 
   const project = await getGuestProject(order.guestToken);
   const template = project?.chosenTemplateSlug
-    ? getTemplateBySlug(project.chosenTemplateSlug)
+    ? await getPublicTemplateBySlug(project.chosenTemplateSlug)
     : null;
+  const layout = template ? await getPublicTemplateEditorLayout(template.slug) : null;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const workflowMessage = getWorkflowMessage(resolvedSearchParams);
+  const statusActions = getOrderStatusActions(order.status);
+  const printFileName = order.printFilePath ? getStoredFileName(order.printFilePath) : null;
+  const previewFileName = order.previewFilePath ? getStoredFileName(order.previewFilePath) : null;
+  const printFileStatusMismatch =
+    Boolean(order.printFilePath) && !isOrderStatusAtLeast(order.status, "ready_to_print");
 
   return (
     <section className="page-shell py-10 sm:py-14" aria-labelledby="order-heading">
@@ -79,16 +85,29 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
           >
             Open design editor
           </Link>
-          <form action={`/api/admin/orders/${order.id}/export`} method="post">
-            <button
-              className="focus-ring min-h-11 rounded-full bg-charcoal px-4 text-sm font-semibold text-paper"
-              type="submit"
+          {order.printFilePath ? (
+            <a
+              className="focus-ring inline-flex min-h-11 items-center justify-center rounded-full bg-charcoal px-4 text-sm font-semibold text-paper"
+              href={`/api/admin/orders/${order.id}/download`}
             >
-              Generate Print File
-            </button>
-          </form>
+              Download print PDF
+            </a>
+          ) : null}
         </div>
       </div>
+
+      {workflowMessage ? (
+        <div
+          className={cn(
+            "mt-6 rounded-[8px] border px-4 py-3 text-sm font-semibold",
+            workflowMessage.tone === "error"
+              ? "border-rose/40 bg-rose/10 text-rose"
+              : "border-[rgb(199_163_95_/_0.35)] bg-cream text-charcoal"
+          )}
+        >
+          {workflowMessage.text}
+        </div>
+      ) : null}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start">
         <div className="grid gap-6">
@@ -108,12 +127,13 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
           </InfoCard>
 
           <InfoCard title="Order details">
+            <p>Project: {order.projectCode}</p>
             <p>Template: {order.templateSlug ?? "Template"}</p>
             <p>
               Sheet size:{" "}
               {template
                 ? formatSheetSizeCm(template.sheetSize, template.orientation)
-                : order.sheetSize ?? "Template size"}
+                : (order.sheetSize ?? "Template size")}
             </p>
             <p>Quantity: {order.quantity}</p>
             <p>Payment: Cash on delivery</p>
@@ -197,10 +217,10 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
         </div>
 
         <aside className="grid gap-6 lg:sticky lg:top-24">
-          {template && project ? (
+          {template && project && layout ? (
             <div className="rounded-[8px] bg-[rgb(45_41_38_/_0.06)] p-3 shadow-soft">
               <MontagePreview
-                layout={getTemplateEditorLayout(template.slug)}
+                layout={layout}
                 photos={project.photos}
                 placements={project.placements}
                 protectedPreview
@@ -210,6 +230,39 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
               />
             </div>
           ) : null}
+
+          <InfoCard title="Production files">
+            {printFileName ? (
+              <>
+                <p className="font-semibold text-charcoal">Print PDF ready</p>
+                <p>{printFileName}</p>
+                {previewFileName ? <p>Preview: {previewFileName}</p> : null}
+                {printFileStatusMismatch ? (
+                  <p className="font-semibold text-rose">
+                    This file exists while the order status is still{" "}
+                    {orderStatusLabels[order.status]}. Set the exact status to Ready to print if
+                    this file is approved.
+                  </p>
+                ) : null}
+                <a
+                  className="focus-ring inline-flex min-h-10 items-center justify-center rounded-full bg-charcoal px-4 text-sm font-semibold text-paper"
+                  href={`/api/admin/orders/${order.id}/download`}
+                >
+                  Download print PDF
+                </a>
+              </>
+            ) : (
+              <p>No print PDF has been generated yet.</p>
+            )}
+            <form action={`/api/admin/orders/${order.id}/export`} method="post">
+              <button
+                className="focus-ring min-h-10 w-full rounded-full border border-[rgb(199_163_95_/_0.4)] bg-paper px-4 text-sm font-semibold text-charcoal"
+                type="submit"
+              >
+                {printFileName ? "Regenerate print PDF" : "Generate print PDF"}
+              </button>
+            </form>
+          </InfoCard>
 
           <InfoCard title="Production checklist">
             {[
@@ -263,29 +316,63 @@ export default async function AdminOrderPage({ params }: AdminOrderPageProps) {
             </form>
           ) : null}
 
-          <div className="soft-card grid gap-2 p-4">
-            {statusActions.map((action) => (
-              <form
-                action={`/api/admin/orders/${order.id}/status`}
-                key={action.label}
-                method="post"
-              >
-                <input name="status" type="hidden" value={action.status} />
-                <button
-                  className="focus-ring min-h-10 w-full rounded-full border border-[rgb(199_163_95_/_0.4)] bg-paper px-4 text-sm font-semibold text-charcoal"
-                  type="submit"
-                >
-                  {action.label}
-                </button>
-              </form>
-            ))}
-          </div>
+          <InfoCard title="Status actions">
+            {statusActions.length ? (
+              <div className="grid gap-2">
+                {statusActions.map((action) => (
+                  <form
+                    action={`/api/admin/orders/${order.id}/status`}
+                    key={`${action.status}-${action.label}`}
+                    method="post"
+                  >
+                    <input name="status" type="hidden" value={action.status} />
+                    <input name="note" type="hidden" value={action.note} />
+                    <button
+                      className={cn(
+                        "focus-ring min-h-10 w-full rounded-full border px-4 text-sm font-semibold",
+                        action.tone === "danger"
+                          ? "border-rose/35 bg-paper text-rose"
+                          : "border-[rgb(199_163_95_/_0.4)] bg-paper text-charcoal"
+                      )}
+                      type="submit"
+                    >
+                      {action.label}
+                    </button>
+                  </form>
+                ))}
+              </div>
+            ) : (
+              <p>No next-step actions for this status.</p>
+            )}
 
-          {order.printFilePath ? (
-            <a className="font-semibold text-rose" href={`/api/admin/orders/${order.id}/download`}>
-              Download Print PDF
-            </a>
-          ) : null}
+            <form
+              action={`/api/admin/orders/${order.id}/status`}
+              className="mt-4 grid gap-2 border-t border-[rgb(199_163_95_/_0.25)] pt-4"
+              method="post"
+            >
+              <label className="grid gap-2 font-semibold text-charcoal">
+                Set exact status
+                <select
+                  className="focus-ring min-h-10 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-charcoal"
+                  defaultValue={order.status}
+                  name="status"
+                >
+                  {orderStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {orderStatusLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <input name="note" type="hidden" value="Manual status correction by admin." />
+              <button
+                className="focus-ring min-h-10 rounded-full bg-charcoal px-4 text-sm font-semibold text-paper"
+                type="submit"
+              >
+                Save status
+              </button>
+            </form>
+          </InfoCard>
         </aside>
       </div>
     </section>
@@ -311,4 +398,62 @@ function formatConsent(consent: string) {
   }
 
   return "No, keep private";
+}
+
+function getStoredFileName(filePath: string) {
+  return filePath.split(/[\\/]/).pop() ?? filePath;
+}
+
+function getWorkflowMessage(searchParams: Record<string, string | string[] | undefined>) {
+  const exportState = getSingleValue(searchParams.export);
+  const downloadState = getSingleValue(searchParams.download);
+  const statusState = getSingleValue(searchParams.status);
+
+  if (exportState === "ready") {
+    return {
+      tone: "success" as const,
+      text: "Print PDF generated and the order is ready to download."
+    };
+  }
+
+  if (exportState === "failed") {
+    return {
+      tone: "error" as const,
+      text: "Print export could not be generated. Check the selected template and local photo files."
+    };
+  }
+
+  if (downloadState === "missing") {
+    return {
+      tone: "error" as const,
+      text: "The saved print PDF could not be found. Regenerate the print PDF before downloading."
+    };
+  }
+
+  if (downloadState === "invalid") {
+    return {
+      tone: "error" as const,
+      text: "The saved print PDF path is not valid. Regenerate the print PDF."
+    };
+  }
+
+  if (statusState === "saved") {
+    return {
+      tone: "success" as const,
+      text: "Order status saved."
+    };
+  }
+
+  if (statusState === "invalid") {
+    return {
+      tone: "error" as const,
+      text: "Choose a valid order status."
+    };
+  }
+
+  return null;
+}
+
+function getSingleValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }
