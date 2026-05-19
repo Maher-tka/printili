@@ -101,6 +101,14 @@ const categories = [
     title: "Family Albums",
     description: "Your family story, beautifully preserved.",
     icon: "album"
+  },
+  {
+    href: "/categories/graduation",
+    image: "/printili/cat-graduation-v2.webp",
+    imagePosition: "center center",
+    title: "Graduation",
+    description: "Custom labels and stickers for graduation parties.",
+    icon: "graduation"
   }
 ];
 
@@ -315,6 +323,15 @@ function CategoryIcon({ type }: { type: string }) {
       <svg aria-hidden="true" viewBox="0 0 24 24">
         <rect height="16" rx="2" width="14" x="5" y="4" />
         <path d="M9 4v16M12 9h4M12 13h4" />
+      </svg>
+    );
+  }
+
+  if (type === "graduation") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="m3 10 9-5 9 5-9 5-9-5Z" />
+        <path d="M7 12.5v3.2c0 1.6 2.2 3.3 5 3.3s5-1.7 5-3.3v-3.2M21 10v5" />
       </svg>
     );
   }

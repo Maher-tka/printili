@@ -241,6 +241,7 @@ Allowed categories:
 - Wedding Prints
 - Baby Collages
 - Family Albums
+- Graduation
 
 Card style:
 

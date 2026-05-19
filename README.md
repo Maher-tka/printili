@@ -30,8 +30,8 @@ npm run dev
 
 ## Environment Variables
 
-- `DATABASE_URL`: PostgreSQL connection string. If unset or left as the placeholder, the app uses local JSON stores under `.local-storage`.
-- `ADMIN_PASSWORD`: Optional admin password. If absent, admin routes use the development placeholder guard.
+- `DATABASE_URL`: PostgreSQL connection string. Required in production. In development only, if it is unset, the app can use local JSON stores under `.local-storage`.
+- `ADMIN_PASSWORD`: Required in production. In development only, if it is absent, admin pages stay open for local work.
 - `NEXT_PUBLIC_SITE_URL`: Optional public URL used when showing copyable magic links.
 
 ## Database And Seed
@@ -52,7 +52,7 @@ npm run db:seed
 
 Open `/admin`.
 
-If `ADMIN_PASSWORD` is set, enter that password. If it is not set, the dashboard opens in development mode.
+If `ADMIN_PASSWORD` is set, enter that password. In production it must be configured; otherwise admin access fails loudly instead of opening the dashboard.
 
 ## Key Flows
 
@@ -71,7 +71,7 @@ See `PRINT_EXPORT_NOTES.md` for current export behavior and limitations.
 
 ## Known Limitations
 
-- Local JSON storage is intended for development only.
+- Local JSON storage is development-only and is rejected in production.
 - Print export embeds a high-quality raster into PDF rather than vector layers.
 - Smart crop, face priority, and subject priority are placeholders and currently render like cover.
 - Frame, gift wrap, premium paper, urgent orders, and delivery fees are pricing placeholders.

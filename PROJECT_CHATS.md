@@ -107,6 +107,23 @@ This file mirrors the Main control chat map for the Printili project.
 - `/templates` now carries the premium Printili direction through the whole page, with a warmer catalog band, refined filters, upgraded template cards, and on-brand local product imagery instead of the older mixed stock previews.
 - Gift Cards and Gallery still remain available elsewhere in the public site through dedicated pages and supporting links; this pass only simplified the primary navigation.
 
+## Latest Integration Update - May 18, 2026 - Graduation Catalog Pass
+
+### Public Website / Admin Templates Handoff
+
+- Added a new public Graduation category card linking to `/categories/graduation`.
+- The Graduation category currently contains exactly two active products: Water Bottle Label and Round Juice Sticker.
+- Graduation now uses dedicated supplied artwork showing the approved bottle-label and round-sticker product scene.
+- Product/catalog data now uses a small generic catalog model so more products can be added later manually without hardcoding any unapproved future Graduation items.
+- Do not add placeholder or coming-soon Graduation products unless the Main control chat explicitly approves them.
+
+## Latest Integration Update - May 18, 2026 - Homepage Scroll Surface Fix
+
+### Public Website Chat Handoff
+
+- The desktop hero overlay now ignores pointer input except on real links/buttons, so wheel scrolling works reliably in the Codex in-app browser while keeping the hero controls clickable.
+- No visual redesign or mobile behavior changed in this pass.
+
 ## Latest Integration Update - May 15, 2026 - Website Confidence Pass
 
 ### Public Website / Client Editor Handoff

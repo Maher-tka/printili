@@ -27,7 +27,6 @@ html,
 body {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
 }
 
 html {
@@ -449,6 +448,108 @@ img {
   color: #5f5b55;
   font-size: 0.9rem;
   font-weight: 600;
+}
+
+.printili-catalog-products {
+  margin-top: clamp(1.8rem, 3vw, 2.5rem);
+}
+
+.printili-catalog-products > div:first-child p {
+  margin: 0;
+  color: #d87355;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.printili-catalog-products > div:first-child h2 {
+  margin: 0.55rem 0 0;
+  color: #161616;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  font-weight: 600;
+  line-height: 0.98;
+}
+
+.printili-catalog-products > div:last-child {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.1rem;
+  margin-top: 1.4rem;
+}
+
+.printili-catalog-product-card {
+  border: 1px solid rgb(40 30 20 / 0.08);
+  border-radius: 24px;
+  background: rgb(255 250 243 / 0.86);
+  box-shadow: 0 18px 46px rgb(67 44 24 / 0.1);
+}
+
+.printili-catalog-product-card > div {
+  padding: 1.25rem;
+}
+
+.printili-catalog-product-card p {
+  margin: 0;
+  color: #d87355;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.printili-catalog-product-card h2 {
+  margin: 0.72rem 0 0;
+  color: #161616;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 600;
+  line-height: 1.02;
+}
+
+.printili-catalog-product-card span {
+  display: block;
+  margin-top: 0.72rem;
+  color: #5f5b55;
+  font-size: 0.92rem;
+  line-height: 1.62;
+}
+
+.printili-catalog-product-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin: 1rem 0 0;
+  color: #161616;
+  font-size: 0.82rem;
+}
+
+.printili-catalog-product-card dt {
+  font-weight: 700;
+}
+
+.printili-catalog-product-card dd {
+  margin: 0.25rem 0 0;
+  color: #5f5b55;
+}
+
+.printili-catalog-product-card ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.printili-catalog-product-card li {
+  border: 1px solid rgb(40 30 20 / 0.08);
+  border-radius: 999px;
+  background: rgb(255 250 243 / 0.9);
+  color: #5f5b55;
+  padding: 0.42rem 0.72rem;
+  font-size: 0.78rem;
 }
 
 .printili-template-filters {
@@ -1182,7 +1283,6 @@ img {
   --printili-shell-max: 1320px;
   --printili-page-gutter: var(--space-page);
   width: 100%;
-  overflow-x: hidden;
   background:
     radial-gradient(circle at 82% 8%, rgb(216 115 85 / 0.12), transparent 24rem),
     radial-gradient(circle at 46% 25%, rgb(199 163 95 / 0.1), transparent 28rem),
@@ -1197,6 +1297,7 @@ img {
   overflow: hidden;
   background: #f8f1e8;
   box-shadow: 0 30px 90px rgb(65 44 25 / 0.12);
+  pointer-events: none;
 }
 
 .printili-static-hero__image {
@@ -1212,6 +1313,12 @@ img {
   position: absolute;
   inset: 0;
   color: #17191c;
+  pointer-events: none;
+}
+
+.printili-hero-overlay a,
+.printili-hero-overlay button {
+  pointer-events: auto;
 }
 
 .printili-hero-nav {

@@ -12,6 +12,12 @@ import {
 } from "@/lib/generated/prisma/client";
 import { getTemplateEditorLayout } from "@/data/template-layouts";
 import { categories, featuredTemplates } from "@/data/seed-templates";
+import {
+  assertLocalJsonFallbackAllowed,
+  handleDatabaseFailure,
+  hasConfiguredDatabaseUrl,
+  isProductionRuntime
+} from "@/lib/runtime-config";
 import type { TemplateFilterInput } from "@/lib/templates";
 import type {
   PageOrientation,
@@ -391,16 +397,16 @@ export async function getPublicTemplateEditorLayout(slug: string): Promise<Templ
 export async function savePublicTemplate(input: SaveTemplateInput): Promise<SavedTemplateResult> {
   const template = await normalizeTemplateInput(input);
 
-  await upsertLocalTemplate(template);
-
   if (hasConfiguredDatabaseUrl()) {
     try {
       await upsertDatabaseTemplate(template);
       return { template, persistence: "database" };
     } catch (error) {
-      console.warn("Database template save failed; saved to local development store.", error);
+      handleDatabaseFailure("Database template save failed", error);
     }
   }
+
+  await upsertLocalTemplate(template);
 
   return { template, persistence: "local" };
 }
@@ -968,6 +974,10 @@ function extensionFromFileName(fileName: string) {
 }
 
 async function readLocalTemplates(): Promise<StoredTemplateRecord[]> {
+  if (isProductionRuntime()) {
+    return [];
+  }
+
   try {
     const templates = JSON.parse(await readFile(localTemplateStorePath, "utf8"));
 
@@ -980,6 +990,7 @@ async function readLocalTemplates(): Promise<StoredTemplateRecord[]> {
 }
 
 async function upsertLocalTemplate(template: StoredTemplateRecord) {
+  assertLocalJsonFallbackAllowed("Template");
   const store = await readLocalTemplates();
   const nextStore = [template, ...store.filter((item) => item.slug !== template.slug)];
 
@@ -1024,7 +1035,7 @@ async function readDatabaseTemplates(): Promise<TemplateSeed[]> {
 
     return templates.map(toTemplateSeedFromDatabase);
   } catch (error) {
-    console.warn("Database template listing failed; using seed and local templates.", error);
+    handleDatabaseFailure("Database template listing failed", error);
     return [];
   }
 }
@@ -1092,7 +1103,7 @@ async function readDatabaseTemplateLayout(slug: string): Promise<TemplateEditorL
       }))
     };
   } catch (error) {
-    console.warn("Database template layout lookup failed; checking local templates.", error);
+    handleDatabaseFailure("Database template layout lookup failed", error);
     return null;
   }
 }
@@ -1322,10 +1333,4 @@ function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 70);
-}
-
-function hasConfiguredDatabaseUrl() {
-  const url = process.env.DATABASE_URL;
-
-  return Boolean(url && !url.includes("johndoe:randompassword@localhost:5432/mydb"));
 }

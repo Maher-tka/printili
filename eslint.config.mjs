@@ -5,7 +5,14 @@ const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
   {
-    ignores: [".next/**", "out/**", "build/**", "lib/generated/**", "next-env.d.ts"]
+    ignores: [
+      ".next/**",
+      "out/**",
+      "build/**",
+      "lib/generated/**",
+      "next-env.d.ts",
+      "react-canvas-editor/**"
+    ]
   }
 ];
 

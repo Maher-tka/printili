@@ -9,11 +9,15 @@ import {
   SheetSize,
   TemplateCategory
 } from "@/lib/generated/prisma/client";
-import { prisma } from "@/lib/prisma";
 import {
   getPublicTemplateBySlug,
   getPublicTemplateEditorLayout
 } from "@/lib/public-template-store";
+import {
+  assertLocalJsonFallbackAllowed,
+  handleDatabaseFailure,
+  hasConfiguredDatabaseUrl
+} from "@/lib/runtime-config";
 import type { SheetSize as CustomerSheetSize, TemplateCategoryId } from "@/types/templates";
 
 export type UploadedProjectPhoto = {
@@ -122,6 +126,7 @@ export async function createGuestProject(input: CreateGuestProjectInput) {
 
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const project = await prisma.project.create({
         data: {
           guestToken,
@@ -170,7 +175,7 @@ export async function createGuestProject(input: CreateGuestProjectInput) {
 
       return toSummary(project, "database");
     } catch (error) {
-      console.warn("Database project creation failed; using local development store.", error);
+      handleDatabaseFailure("Database project creation failed", error);
     }
   }
 
@@ -195,6 +200,7 @@ export async function createGuestProject(input: CreateGuestProjectInput) {
 export async function getGuestProject(guestToken: string): Promise<GuestProjectSummary | null> {
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const project = await prisma.project.findUnique({
         where: {
           guestToken
@@ -221,7 +227,7 @@ export async function getGuestProject(guestToken: string): Promise<GuestProjectS
 
       return project ? toSummary(project, "database") : null;
     } catch (error) {
-      console.warn("Database project lookup failed; checking local development store.", error);
+      handleDatabaseFailure("Database project lookup failed", error);
     }
   }
 
@@ -241,6 +247,7 @@ export async function chooseTemplateForProject({
 }) {
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const [project, template] = await Promise.all([
         prisma.project.findUnique({
           where: {
@@ -335,7 +342,7 @@ export async function chooseTemplateForProject({
 
       return toSummary(updatedProject, "database", template.slug);
     } catch (error) {
-      console.warn("Database template selection failed; using local development store.", error);
+      handleDatabaseFailure("Database template selection failed", error);
     }
   }
 
@@ -356,13 +363,8 @@ function getDefaultProjectExpiry() {
   return expiresAt;
 }
 
-function hasConfiguredDatabaseUrl() {
-  const url = process.env.DATABASE_URL;
-
-  return Boolean(url && !url.includes("johndoe:randompassword@localhost:5432/mydb"));
-}
-
 async function saveLocalProject(project: LocalProjectRecord) {
+  assertLocalJsonFallbackAllowed("Project");
   const store = await readLocalStore();
   store.push(project);
   await mkdir(path.dirname(localStorePath), { recursive: true });
@@ -378,6 +380,7 @@ async function chooseLocalTemplate({
   guestToken: string;
   templateSlug: string;
 }) {
+  assertLocalJsonFallbackAllowed("Project");
   const store = await readLocalStore();
   const projectIndex = store.findIndex((project) => project.guestToken === guestToken);
 
@@ -420,6 +423,8 @@ async function chooseLocalTemplate({
 }
 
 async function readLocalStore(): Promise<LocalProjectRecord[]> {
+  assertLocalJsonFallbackAllowed("Project");
+
   try {
     return JSON.parse(await readFile(localStorePath, "utf8")) as LocalProjectRecord[];
   } catch {
@@ -571,6 +576,7 @@ export async function updateProjectPlacement({
 }) {
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const project = await prisma.project.findUnique({
         where: {
           guestToken
@@ -610,7 +616,7 @@ export async function updateProjectPlacement({
 
       return getGuestProject(guestToken);
     } catch (error) {
-      console.warn("Database placement update failed; checking local development store.", error);
+      handleDatabaseFailure("Database placement update failed", error);
     }
   }
 
@@ -653,6 +659,7 @@ export async function updateProjectTextValue({
 }) {
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const project = await prisma.project.findUnique({
         where: {
           guestToken
@@ -685,7 +692,7 @@ export async function updateProjectTextValue({
 
       return getGuestProject(guestToken);
     } catch (error) {
-      console.warn("Database text update failed; checking local development store.", error);
+      handleDatabaseFailure("Database text update failed", error);
     }
   }
 
@@ -710,6 +717,7 @@ export async function updateProjectApproval({
 }) {
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       await prisma.project.update({
         where: { guestToken },
         data: {
@@ -720,10 +728,7 @@ export async function updateProjectApproval({
 
       return getGuestProject(guestToken);
     } catch (error) {
-      console.warn(
-        "Database project approval update failed; checking local development store.",
-        error
-      );
+      handleDatabaseFailure("Database project approval update failed", error);
     }
   }
 
@@ -738,6 +743,7 @@ async function updateLocalProject(
   guestToken: string,
   update: (project: LocalProjectRecord) => LocalProjectRecord | null
 ) {
+  assertLocalJsonFallbackAllowed("Project");
   const store = await readLocalStore();
   const projectIndex = store.findIndex((project) => project.guestToken === guestToken);
 
@@ -796,4 +802,10 @@ function toPrismaFitMode(fitMode: EditableFitMode) {
   }
 
   return FitMode.COVER;
+}
+
+async function getPrismaClient() {
+  const { prisma } = await import("@/lib/prisma");
+
+  return prisma;
 }

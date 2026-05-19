@@ -1,14 +1,12 @@
 import type { MetadataRoute } from "next";
+import { catalogCategories } from "@/data/catalog";
 import { publicPages } from "@/data/public-pages";
 import { seoLandingPages } from "@/data/seo-pages";
-import { getAllPublicTemplates } from "@/lib/public-template-store";
-import { categories } from "@/data/seed-templates";
+import { categories, featuredTemplates } from "@/data/seed-templates";
 
 const baseUrl = "https://printable-photo-montage.example";
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const templates = await getAllPublicTemplates();
-
+export default function sitemap(): MetadataRoute.Sitemap {
   return [
     "",
     "/start",
@@ -16,8 +14,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/cart",
     "/customer",
     "/newsletter",
+    ...catalogCategories
+      .filter((category) => category.isActive)
+      .map((category) => `/categories/${category.slug}`),
     ...categories.map((category) => `/templates/${category.slug}`),
-    ...templates.map((template) => `/template/${template.slug}`),
+    ...featuredTemplates.map((template) => `/template/${template.slug}`),
     ...seoLandingPages.map((page) => `/${page.slug}`),
     ...publicPages.map((page) => `/${page.slug}`)
   ].map((path) => ({

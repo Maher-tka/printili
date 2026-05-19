@@ -9,8 +9,12 @@ import {
   SheetSize
 } from "@/lib/generated/prisma/client";
 import { type OrderStatusId } from "@/lib/order-workflow";
-import { prisma } from "@/lib/prisma";
 import { getGuestProject } from "@/lib/project-store";
+import {
+  assertLocalJsonFallbackAllowed,
+  handleDatabaseFailure,
+  hasConfiguredDatabaseUrl
+} from "@/lib/runtime-config";
 
 export type { OrderStatusId } from "@/lib/order-workflow";
 export { orderStatusLabels } from "@/lib/order-workflow";
@@ -109,6 +113,7 @@ export async function createOrder(input: CreateOrderInput) {
 
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const order = await prisma.order.create({
         data: {
           orderNumber,
@@ -158,7 +163,7 @@ export async function createOrder(input: CreateOrderInput) {
 
       return toOrderSummary(order);
     } catch (error) {
-      console.warn("Database order creation failed; using local development store.", error);
+      handleDatabaseFailure("Database order creation failed", error);
     }
   }
 
@@ -225,6 +230,7 @@ export async function createOrder(input: CreateOrderInput) {
 export async function listOrders() {
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const orders = await prisma.order.findMany({
         include: orderInclude,
         orderBy: {
@@ -234,7 +240,7 @@ export async function listOrders() {
 
       return orders.map(toOrderSummary);
     } catch (error) {
-      console.warn("Database order listing failed; using local development store.", error);
+      handleDatabaseFailure("Database order listing failed", error);
     }
   }
 
@@ -244,6 +250,7 @@ export async function listOrders() {
 export async function getOrderById(orderId: string) {
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const order = await prisma.order.findUnique({
         where: { id: orderId },
         include: orderInclude
@@ -251,7 +258,7 @@ export async function getOrderById(orderId: string) {
 
       return order ? toOrderSummary(order) : null;
     } catch (error) {
-      console.warn("Database order lookup failed; using local development store.", error);
+      handleDatabaseFailure("Database order lookup failed", error);
     }
   }
 
@@ -261,6 +268,7 @@ export async function getOrderById(orderId: string) {
 export async function getOrderByProjectToken(guestToken: string) {
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const project = await prisma.project.findUnique({
         where: { guestToken },
         select: { order: { include: orderInclude } }
@@ -268,7 +276,7 @@ export async function getOrderByProjectToken(guestToken: string) {
 
       return project?.order ? toOrderSummary(project.order) : null;
     } catch (error) {
-      console.warn("Database project order lookup failed; using local development store.", error);
+      handleDatabaseFailure("Database project order lookup failed", error);
     }
   }
 
@@ -288,6 +296,7 @@ export async function updateOrderStatus({
 }) {
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const currentOrder = await prisma.order.findUnique({
         where: { id: orderId },
         include: orderInclude
@@ -319,7 +328,7 @@ export async function updateOrderStatus({
 
       return toOrderSummary(updatedOrder);
     } catch (error) {
-      console.warn("Database status update failed; using local development store.", error);
+      handleDatabaseFailure("Database status update failed", error);
     }
   }
 
@@ -363,6 +372,7 @@ export async function addAdminNote({
 }) {
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const note = await prisma.adminNote.create({
         data: {
           orderId,
@@ -378,7 +388,7 @@ export async function addAdminNote({
         createdAt: note.createdAt.toISOString()
       };
     } catch (error) {
-      console.warn("Database note creation failed; using local development store.", error);
+      handleDatabaseFailure("Database note creation failed", error);
     }
   }
 
@@ -415,6 +425,7 @@ export async function updateOrderGeneratedFiles({
 }) {
   if (hasConfiguredDatabaseUrl()) {
     try {
+      const prisma = await getPrismaClient();
       const order = await prisma.order.update({
         where: { id: orderId },
         data: {
@@ -426,7 +437,7 @@ export async function updateOrderGeneratedFiles({
 
       return toOrderSummary(order);
     } catch (error) {
-      console.warn("Database file update failed; using local development store.", error);
+      handleDatabaseFailure("Database file update failed", error);
     }
   }
 
@@ -443,6 +454,7 @@ function createOrderNumber() {
 }
 
 async function patchLocalProject(guestToken: string, patch: Record<string, unknown>) {
+  assertLocalJsonFallbackAllowed("Order");
   const localStorePath = path.join(process.cwd(), ".local-storage", "projects.json");
 
   try {
@@ -464,6 +476,7 @@ async function updateLocalOrder(
   orderId: string,
   update: (order: LocalOrderRecord) => LocalOrderRecord
 ) {
+  assertLocalJsonFallbackAllowed("Order");
   const store = await readLocalOrderStore();
   const index = store.findIndex((order) => order.id === orderId);
 
@@ -479,6 +492,8 @@ async function updateLocalOrder(
 }
 
 async function readLocalOrderStore(): Promise<LocalOrderRecord[]> {
+  assertLocalJsonFallbackAllowed("Order");
+
   try {
     return (JSON.parse(await readFile(localOrderStorePath, "utf8")) as LocalOrderRecord[]).map(
       withLocalOrderDefaults
@@ -489,6 +504,7 @@ async function readLocalOrderStore(): Promise<LocalOrderRecord[]> {
 }
 
 async function writeLocalOrderStore(store: LocalOrderRecord[]) {
+  assertLocalJsonFallbackAllowed("Order");
   await mkdir(path.dirname(localOrderStorePath), { recursive: true });
   await writeFile(localOrderStorePath, JSON.stringify(store, null, 2));
 }
@@ -636,12 +652,6 @@ function toOrderSummary(order: {
   };
 }
 
-function hasConfiguredDatabaseUrl() {
-  const url = process.env.DATABASE_URL;
-
-  return Boolean(url && !url.includes("johndoe:randompassword@localhost:5432/mydb"));
-}
-
 function fromPrismaStatus(status: OrderStatus): OrderStatusId {
   return status.toLowerCase() as OrderStatusId;
 }
@@ -685,4 +695,10 @@ function toPrismaConsent(consent: SampleUseConsentId) {
   }
 
   return SampleUseConsent.PRIVATE;
+}
+
+async function getPrismaClient() {
+  const { prisma } = await import("@/lib/prisma");
+
+  return prisma;
 }
