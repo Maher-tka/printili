@@ -5,10 +5,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { MontagePreview } from "@/components/montage-preview";
 import { cn } from "@/lib/cn";
+import { normalizeEditableFitModeForSlot } from "@/lib/placement-fit";
 import { getPhotoSource } from "@/lib/photo-url";
 import type {
-  EditableFitMode,
   GuestProjectSummary,
+  ImplementedFitMode,
   ProjectPlacementSummary
 } from "@/lib/project-store";
 import { formatSheetSizeCm } from "@/lib/templates";
@@ -23,13 +24,27 @@ type CustomerEditorProps = {
 
 type SaveState = "saved" | "saving" | "error";
 
-const fitModeLabels: Record<EditableFitMode, string> = {
-  cover: "Fill slot",
-  contain_blur: "Fit with blur",
-  smart_crop: "Smart crop (soon)",
-  face_priority: "Face priority (soon)",
-  subject_priority: "Subject priority (soon)"
-};
+const fitModeOptions: Array<{
+  value: ImplementedFitMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "cover",
+    label: "Fill frame",
+    description: "Crop to the slot. Zoom, rotate, and nudge are available."
+  },
+  {
+    value: "contain_blur",
+    label: "Fit whole photo",
+    description: "Show the full photo with soft blurred edges."
+  },
+  {
+    value: "smart_crop",
+    label: "Smart crop",
+    description: "Use photo and frame orientation to keep the likely subject better placed."
+  }
+];
 
 const quickEmojis = [
   { label: "heart", value: "\u2665" },
@@ -48,11 +63,21 @@ export function CustomerEditor({
   layout,
   adminMode = false
 }: CustomerEditorProps) {
+  const initialPlacements = useMemo(
+    () =>
+      project.placements.map((placement, index) =>
+        normalizePlacementForEditor(
+          placement,
+          layout.slots.find((slot) => slot.id === placement.slotId) ?? layout.slots[index]
+        )
+      ),
+    [layout.slots, project.placements]
+  );
   const initialTextValues = useMemo(
     () => getInitialTextValues(layout.textFields, project.textValues),
     [layout.textFields, project.textValues]
   );
-  const [placements, setPlacements] = useState<ProjectPlacementSummary[]>(project.placements);
+  const [placements, setPlacements] = useState<ProjectPlacementSummary[]>(initialPlacements);
   const [textValues, setTextValues] = useState<Record<string, string>>(initialTextValues);
   const [selectedSlotId, setSelectedSlotId] = useState(layout.slots[0]?.id ?? "");
   const [placementSaveState, setPlacementSaveState] = useState<SaveState>("saved");
@@ -61,7 +86,7 @@ export function CustomerEditor({
   const placementSaveVersionRef = useRef(0);
   const textSaveVersionRef = useRef(0);
   const savedPlacementPayloadsRef = useRef(
-    new Map(project.placements.map((placement) => [placement.id, serializePlacement(placement)]))
+    new Map(initialPlacements.map((placement) => [placement.id, serializePlacement(placement)]))
   );
   const savedTextValuesRef = useRef(new Map(Object.entries(initialTextValues)));
   const renderedSlots = useMemo(
@@ -96,6 +121,7 @@ export function CustomerEditor({
       );
 
     if (changedPlacements.length === 0) {
+      setPlacementSaveState("saved");
       return;
     }
 
@@ -151,6 +177,7 @@ export function CustomerEditor({
     );
 
     if (changedFields.length === 0) {
+      setTextSaveState("saved");
       return;
     }
 
@@ -235,12 +262,29 @@ export function CustomerEditor({
     updateTextField(field, `${textValues[field.key] ?? ""}${emoji}`);
   }
 
-  function changeFitMode(fitMode: EditableFitMode) {
-    if (isFutureFitMode(fitMode)) {
+  function changeFitMode(fitMode: ImplementedFitMode) {
+    const selectedSlot = selectedRenderedSlot?.slot;
+
+    if (fitMode === "contain_blur" && selectedSlot?.allowBlurFill === false) {
+      return;
+    }
+
+    if (fitMode === "smart_crop" && selectedSlot?.allowSmartCrop === false) {
       return;
     }
 
     if (fitMode === "contain_blur") {
+      updateSelectedPlacement({
+        fitMode,
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0,
+        rotation: 0
+      });
+      return;
+    }
+
+    if (fitMode === "smart_crop") {
       updateSelectedPlacement({
         fitMode,
         zoom: 1,
@@ -265,7 +309,10 @@ export function CustomerEditor({
       offsetX: 0,
       offsetY: 0,
       rotation: 0,
-      fitMode: selectedPlacement.fitMode === "contain_blur" ? "contain_blur" : "cover"
+      fitMode:
+        selectedPlacement.fitMode === "contain_blur" || selectedPlacement.fitMode === "smart_crop"
+          ? selectedPlacement.fitMode
+          : "cover"
     });
   }
 
@@ -486,7 +533,7 @@ function EditorControls({
   onZoomChange: (zoom: number) => void;
   onRotationChange: (rotation: number) => void;
   onNudge: (axis: "offsetX" | "offsetY", amount: number) => void;
-  onFitModeChange: (fitMode: EditableFitMode) => void;
+  onFitModeChange: (fitMode: ImplementedFitMode) => void;
   onPhotoChange: (photoId: string) => void;
   onReset: () => void;
   onTextChange: (field: TemplateTextFieldSeed, value: string) => void;
@@ -494,6 +541,18 @@ function EditorControls({
   onSlotSelect: (slotId: string) => void;
   onToggleCutGuides: (showCutGuides: boolean) => void;
 }) {
+  const selectedSlot = selectedSlotIndex >= 0 ? layout.slots[selectedSlotIndex] : undefined;
+  const availableFitOptions = fitModeOptions.filter((option) => {
+    if (option.value === "contain_blur") {
+      return selectedSlot?.allowBlurFill !== false;
+    }
+
+    if (option.value === "smart_crop") {
+      return selectedSlot?.allowSmartCrop !== false;
+    }
+
+    return true;
+  });
   const isContainBlur = selectedPlacement?.fitMode === "contain_blur";
   const canCrop = Boolean(selectedPlacement && !isContainBlur);
   const zoomPercent = Math.round((selectedPlacement?.zoom ?? 1) * 100);
@@ -550,7 +609,7 @@ function EditorControls({
             className="accent-rose"
             disabled={!canCrop}
             max={2.8}
-            min={0.5}
+            min={1}
             onChange={(event) => onZoomChange(Number(event.target.value))}
             step={0.05}
             type="range"
@@ -587,28 +646,40 @@ function EditorControls({
           />
         </label>
 
-        <label className="grid gap-2 text-sm font-semibold text-charcoal">
-          Fit
-          <select
-            className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm text-charcoal"
-            disabled={!selectedPlacement}
-            onChange={(event) => onFitModeChange(event.target.value as EditableFitMode)}
-            value={selectedPlacement?.fitMode ?? "cover"}
-          >
-            {Object.entries(fitModeLabels).map(([value, label]) => {
-              const fitMode = value as EditableFitMode;
+        <div className="grid gap-2 text-sm font-semibold text-charcoal">
+          <span>Fit</span>
+          <div className="grid gap-2" role="group" aria-label="Photo fit mode">
+            {availableFitOptions.map((option) => {
+              const isActive = selectedPlacement?.fitMode === option.value;
 
               return (
-                <option disabled={isFutureFitMode(fitMode)} key={value} value={value}>
-                  {label}
-                </option>
+                <button
+                  aria-pressed={isActive}
+                  className={cn(
+                    "focus-ring min-h-14 rounded-[10px] border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-50",
+                    isActive
+                      ? "border-rose bg-rose-soft text-charcoal shadow-[0_10px_24px_rgb(191_127_134_/_0.16)]"
+                      : "border-[rgb(199_163_95_/_0.32)] bg-paper text-charcoal hover:border-rose/70 hover:bg-cream"
+                  )}
+                  disabled={!selectedPlacement}
+                  key={option.value}
+                  onClick={() => onFitModeChange(option.value)}
+                  type="button"
+                >
+                  <span className="block text-sm font-semibold">{option.label}</span>
+                  <span className="mt-1 block text-xs font-normal leading-5 text-charcoal-soft">
+                    {option.description}
+                  </span>
+                </button>
               );
             })}
-          </select>
-          <span className="text-xs font-normal leading-5 text-charcoal-soft">
-            Blur background keeps the full photo visible and fills empty space naturally.
-          </span>
-        </label>
+          </div>
+          {selectedSlot?.allowBlurFill === false ? (
+            <span className="text-xs font-normal leading-5 text-charcoal-soft">
+              Blur-fill is hidden for this print-cut spot.
+            </span>
+          ) : null}
+        </div>
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <div />
@@ -964,10 +1035,6 @@ function SaveBadge({ state }: { state: SaveState }) {
   );
 }
 
-function isFutureFitMode(fitMode: EditableFitMode) {
-  return fitMode !== "cover" && fitMode !== "contain_blur";
-}
-
 function getCustomerPhotoId(photo: GuestProjectSummary["photos"][number], index: number) {
   return photo.id ?? `local-photo-${index + 1}`;
 }
@@ -1064,6 +1131,33 @@ function serializePlacement(placement: ProjectPlacementSummary) {
     rotation: placement.rotation,
     fitMode: placement.fitMode
   });
+}
+
+function normalizePlacementForEditor(
+  placement: ProjectPlacementSummary,
+  slot?: TemplateEditorLayout["slots"][number]
+): ProjectPlacementSummary {
+  const fitMode = normalizeEditableFitModeForSlot(placement.fitMode, slot);
+
+  if (fitMode === "contain_blur") {
+    return {
+      ...placement,
+      fitMode,
+      zoom: 1,
+      offsetX: 0,
+      offsetY: 0,
+      rotation: 0
+    };
+  }
+
+  return {
+    ...placement,
+    fitMode,
+    zoom: clamp(placement.zoom, 1, 2.8),
+    offsetX: clamp(placement.offsetX, -80, 80),
+    offsetY: clamp(placement.offsetY, -80, 80),
+    rotation: clamp(placement.rotation, -45, 45)
+  };
 }
 
 function clamp(value: number, min: number, max: number) {

@@ -26,7 +26,7 @@ describe("photo analyzer rules", () => {
     expect(estimatePrintQuality(900, 1200, SheetSize.A4)).toBe(EstimatedPrintQuality.LOW);
   });
 
-  it("returns warnings for low resolution and tiny files", () => {
+  it("keeps photo warnings focused to one useful issue", () => {
     const warnings = getQualityWarnings({
       widthPx: 900,
       heightPx: 1200,
@@ -37,12 +37,21 @@ describe("photo analyzer rules", () => {
       sharpnessScore: 0.5
     });
 
-    expect(warnings).toEqual(
-      expect.arrayContaining([
-        "Resolution may be too low for an important A4 print placement.",
-        "File size is very small, which can indicate a compressed or low-detail image."
-      ])
-    );
+    expect(warnings).toEqual(["This photo may print softly in a large A4 placement."]);
+  });
+
+  it("does not warn for acceptable photos without a serious issue", () => {
+    const warnings = getQualityWarnings({
+      widthPx: 1800,
+      heightPx: 2400,
+      fileSizeBytes: 420 * 1024,
+      sheetSize: SheetSize.A4,
+      estimatedPrintQuality: EstimatedPrintQuality.ACCEPTABLE,
+      brightnessScore: 0.5,
+      sharpnessScore: 0.16
+    });
+
+    expect(warnings).toEqual([]);
   });
 
   it("summarizes uploaded orientation counts and warnings", () => {

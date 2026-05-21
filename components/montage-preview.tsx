@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { cn } from "@/lib/cn";
+import { getEffectivePlacementControls } from "@/lib/placement-fit";
 import { getPhotoSource } from "@/lib/photo-url";
 import type {
   EditableFitMode,
@@ -31,7 +32,7 @@ type MontagePreviewProps = {
   onSlotSelect?: (slotId: string) => void;
 };
 
-type VisualFitMode = "cover" | "contain_blur";
+type VisualFitMode = "cover" | "contain_blur" | "smart_crop";
 
 export function MontagePreview({
   template,
@@ -138,9 +139,11 @@ function PhotoSlot({
       <PlacedPhoto
         fitMode={visualFitMode}
         isPolaroidCell={isPolaroidCell}
+        photo={photo}
         photoFileName={photo.fileName}
         photoSource={photoSource}
         placement={placement}
+        slot={slot}
         templateName={templateName}
       />
     ) : (
@@ -193,16 +196,20 @@ function PhotoSlot({
 function PlacedPhoto({
   fitMode,
   isPolaroidCell,
+  photo,
   photoFileName,
   photoSource,
   placement,
+  slot,
   templateName
 }: {
   fitMode: VisualFitMode;
   isPolaroidCell: boolean;
+  photo: UploadedProjectPhoto;
   photoFileName: string;
   photoSource: string;
   placement: ProjectPlacementSummary;
+  slot: TemplateSlotSeed;
   templateName: string;
 }) {
   if (fitMode === "contain_blur") {
@@ -235,6 +242,17 @@ function PlacedPhoto({
     );
   }
 
+  const targetAspectRatio = isPolaroidCell ? (slot.width * 0.88) / (slot.height * 0.76) : undefined;
+  const controls = getEffectivePlacementControls({
+    placement: {
+      ...placement,
+      fitMode
+    },
+    photo,
+    slot,
+    targetAspectRatio
+  });
+
   return (
     <div
       className={cn(
@@ -250,7 +268,7 @@ function PlacedPhoto({
         )}
         src={photoSource}
         style={{
-          transform: `translate(-50%, -50%) translate(${placement.offsetX}%, ${placement.offsetY}%) scale(${placement.zoom}) rotate(${placement.rotation}deg)`
+          transform: `translate(-50%, -50%) translate(${controls.offsetX}%, ${controls.offsetY}%) scale(${controls.zoom}) rotate(${controls.rotation}deg)`
         }}
       />
     </div>
@@ -258,7 +276,15 @@ function PlacedPhoto({
 }
 
 function getVisualFitMode(fitMode: EditableFitMode): VisualFitMode {
-  return fitMode === "contain_blur" ? "contain_blur" : "cover";
+  if (fitMode === "contain_blur") {
+    return "contain_blur";
+  }
+
+  if (fitMode === "smart_crop") {
+    return "smart_crop";
+  }
+
+  return "cover";
 }
 
 function PreviewText({ field, value }: { field: TemplateTextFieldSeed; value: string }) {

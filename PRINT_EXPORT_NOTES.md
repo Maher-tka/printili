@@ -12,6 +12,6 @@ Current behavior:
 
 Known limitations:
 
-- Crop math is production-ready for `cover` and `contain_blur`, but advanced face/subject priority modes still fall back to cover.
+- Crop math is production-ready for `cover`, `contain_blur`, and orientation-aware `smart_crop`; face/subject priority modes still fall back to cover until detection metadata exists.
 - PDF output embeds a high-quality JPEG raster rather than editable vector layers.
 - Non-local storage providers will need a resolver before export can read remote originals.

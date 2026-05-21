@@ -127,15 +127,26 @@ export function StartUploadFlow({
     updateSelectedFiles(removeFileAtIndex(files, indexToRemove));
   }
 
-  function updateSelectedFiles(nextFiles: File[]) {
+  function clearPhotoCarousel() {
+    updateSelectedFiles([], { showValidation: false });
+  }
+
+  function updateSelectedFiles(
+    nextFiles: File[],
+    options: {
+      showValidation?: boolean;
+    } = {}
+  ) {
     setFiles(nextFiles);
     setProgress(0);
     setStatus("idle");
-    setMessage(validateFiles(nextFiles, initialTemplateMinPhotos));
+    setMessage(
+      options.showValidation === false ? null : validateFiles(nextFiles, initialTemplateMinPhotos)
+    );
   }
 
   return (
-    <form className="grid gap-8" onSubmit={handleSubmit}>
+    <form className="grid min-w-0 max-w-full gap-8 overflow-x-hidden" onSubmit={handleSubmit}>
       <div className="soft-card grid gap-3 p-4 sm:grid-cols-3">
         {[
           ["1", initialTemplateName ? "Design chosen" : "Choose category"],
@@ -202,7 +213,10 @@ export function StartUploadFlow({
         )}
       </section>
 
-      <section className="soft-card p-5 sm:p-6" aria-labelledby="upload-step-heading">
+      <section
+        className="soft-card min-w-0 max-w-full overflow-x-hidden p-5 sm:p-6"
+        aria-labelledby="upload-step-heading"
+      >
         <p className="text-sm font-semibold text-rose">Step 2</p>
         <h2 id="upload-step-heading" className="mt-1 text-2xl font-semibold">
           Upload photos
@@ -246,9 +260,13 @@ export function StartUploadFlow({
         ) : null}
 
         <label className="mt-5 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-[rgb(199_163_95_/_0.55)] bg-paper px-5 py-8 text-center transition hover:bg-cream">
-          <span className="text-lg font-semibold">Choose photos from your device</span>
+          <span className="text-lg font-semibold">
+            {files.length > 0
+              ? "Add more photos to the carousel"
+              : "Choose photos from your device"}
+          </span>
           <span className="mt-2 text-sm leading-6 text-charcoal-soft">
-            Upload multiple image files, up to 12 MB each.
+            New uploads are added to your current photos. Up to 12 MB each.
           </span>
           <input
             accept="image/*"
@@ -261,82 +279,117 @@ export function StartUploadFlow({
         </label>
 
         {files.length > 0 ? (
-          <div className="mt-5 rounded-[var(--radius-card)] bg-cream p-4">
+          <div className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-[var(--radius-card)] bg-cream p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-sm font-semibold">
+                <p className="text-sm font-semibold">Selected photo carousel</p>
+                <p className="mt-1 text-xs leading-5 text-charcoal-soft">
                   {files.length} photo{files.length === 1 ? "" : "s"} selected /{" "}
                   {formatFileSize(totalSize)}
                 </p>
-                <p className="mt-1 text-xs leading-5 text-charcoal-soft">
-                  The order here becomes the first layout order, so put the strongest photo first.
-                </p>
               </div>
-              {initialTemplateMinPhotos ? (
-                <span className="text-xs font-semibold text-charcoal-soft">
-                  {formatRequiredPhotoRange(initialTemplateMinPhotos, initialTemplateMaxPhotos)}
-                </span>
-              ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                {initialTemplateMinPhotos ? (
+                  <span className="rounded-full bg-paper px-3 py-1 text-xs font-semibold text-charcoal-soft">
+                    {formatRequiredPhotoRange(initialTemplateMinPhotos, initialTemplateMaxPhotos)}
+                  </span>
+                ) : null}
+                <button
+                  className="focus-ring inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-rose/35 bg-paper px-3 text-xs font-semibold text-rose transition hover:bg-rose-soft"
+                  onClick={clearPhotoCarousel}
+                  type="button"
+                >
+                  <svg
+                    aria-hidden="true"
+                    className="size-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v5" />
+                    <path d="M14 11v5" />
+                  </svg>
+                  Clear carousel
+                </button>
+              </div>
             </div>
 
-            <ol className="mt-4 grid gap-2">
-              {files.map((file, index) => (
-                <li
-                  className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 rounded-[8px] bg-paper p-2"
-                  key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="block aspect-square overflow-hidden rounded-[6px] bg-cream-strong"
-                    style={
-                      previewUrls[index]
-                        ? {
-                            backgroundImage: `url("${previewUrls[index]}")`,
-                            backgroundPosition: "center",
-                            backgroundSize: "cover"
-                          }
-                        : undefined
-                    }
-                  />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-charcoal">
-                      {index + 1}. {file.name}
+            <div className="mt-4 w-full min-w-0 max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain pb-3">
+              <ol
+                aria-label="Selected photo carousel"
+                className="flex w-max max-w-none snap-x gap-3 px-1"
+              >
+                {files.map((file, index) => (
+                  <li
+                    className="relative flex w-[13.5rem] shrink-0 snap-start flex-col overflow-hidden rounded-[18px] border border-[rgb(199_163_95_/_0.24)] bg-paper shadow-[0_14px_34px_rgb(67_44_24_/_0.08)]"
+                    key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
+                  >
+                    <span
+                      className="relative block aspect-[4/3] w-full bg-cream-strong"
+                      style={
+                        previewUrls[index]
+                          ? {
+                              backgroundImage: `url("${previewUrls[index]}")`,
+                              backgroundPosition: "center",
+                              backgroundSize: "cover"
+                            }
+                          : undefined
+                      }
+                    >
+                      <span className="absolute left-3 top-3 rounded-full bg-paper/90 px-2.5 py-1 text-xs font-bold text-charcoal shadow-[0_8px_20px_rgb(45_41_38_/_0.12)]">
+                        {index + 1}
+                      </span>
+                      <button
+                        aria-label={`Remove ${file.name}`}
+                        className="focus-ring absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-full bg-paper/92 text-lg font-semibold text-rose shadow-[0_8px_20px_rgb(45_41_38_/_0.14)] transition hover:bg-rose-soft"
+                        onClick={() => removeFile(index)}
+                        type="button"
+                      >
+                        &times;
+                      </button>
                     </span>
-                    <span className="mt-0.5 block text-xs text-charcoal-soft">
-                      {formatFileSize(file.size)}
+                    <span className="min-w-0 p-3">
+                      <span className="block truncate text-sm font-semibold text-charcoal">
+                        {file.name}
+                      </span>
+                      <span className="mt-1 block text-xs text-charcoal-soft">
+                        {formatFileSize(file.size)}
+                      </span>
+                      <span className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          aria-label={`Move ${file.name} earlier`}
+                          className="focus-ring inline-flex min-h-9 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.35)] bg-cream px-3 text-sm font-semibold text-charcoal transition hover:bg-rose-soft disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={index === 0}
+                          onClick={() => moveFile(index, index - 1)}
+                          type="button"
+                        >
+                          &#8592;
+                        </button>
+                        <button
+                          aria-label={`Move ${file.name} later`}
+                          className="focus-ring inline-flex min-h-9 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.35)] bg-cream px-3 text-sm font-semibold text-charcoal transition hover:bg-rose-soft disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={index === files.length - 1}
+                          onClick={() => moveFile(index, index + 1)}
+                          type="button"
+                        >
+                          &#8594;
+                        </button>
+                      </span>
                     </span>
-                  </span>
-                  <span className="flex gap-1">
-                    <button
-                      aria-label={`Move ${file.name} earlier`}
-                      className="focus-ring inline-flex size-9 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper text-sm font-semibold text-charcoal disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={index === 0}
-                      onClick={() => moveFile(index, index - 1)}
-                      type="button"
-                    >
-                      &#8593;
-                    </button>
-                    <button
-                      aria-label={`Move ${file.name} later`}
-                      className="focus-ring inline-flex size-9 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper text-sm font-semibold text-charcoal disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={index === files.length - 1}
-                      onClick={() => moveFile(index, index + 1)}
-                      type="button"
-                    >
-                      &#8595;
-                    </button>
-                    <button
-                      aria-label={`Remove ${file.name}`}
-                      className="focus-ring inline-flex size-9 items-center justify-center rounded-full border border-rose/35 bg-paper text-lg font-semibold text-rose transition hover:bg-rose-soft"
-                      onClick={() => removeFile(index)}
-                      type="button"
-                    >
-                      &times;
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ol>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-charcoal-soft">
+              Swipe or scroll sideways to review photos. The carousel order becomes the first layout
+              order.
+            </p>
           </div>
         ) : null}
 

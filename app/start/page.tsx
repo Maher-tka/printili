@@ -34,7 +34,7 @@ export default async function StartPage({ searchParams }: StartPageProps) {
         title="Start with your photos."
       />
 
-      <div className="mt-8 max-w-5xl">
+      <div className="mt-8 w-full min-w-0 max-w-5xl overflow-x-hidden">
         <StartUploadFlow
           initialCategory={selectedTemplate?.categoryId}
           initialTemplateMaxPhotos={selectedTemplate?.maxPhotos}

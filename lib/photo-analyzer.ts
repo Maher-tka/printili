@@ -150,30 +150,27 @@ export function getQualityWarnings({
   }
 
   if (estimatedPrintQuality === EstimatedPrintQuality.LOW) {
-    warnings.push(`Resolution may be too low for an important ${sheetSize} print placement.`);
+    warnings.push(`This photo may print softly in a large ${sheetSize} placement.`);
   }
 
-  if (estimatedPrintQuality === EstimatedPrintQuality.ACCEPTABLE) {
-    warnings.push("Resolution is acceptable, but may look softer in a large hero photo slot.");
+  if (brightnessScore !== null && brightnessScore < 0.16) {
+    warnings.push("This photo looks dark and may need a quick print review.");
   }
 
-  if (fileSizeBytes < verySmallFileBytes) {
-    warnings.push("File size is very small, which can indicate a compressed or low-detail image.");
+  if (brightnessScore !== null && brightnessScore > 0.95) {
+    warnings.push("This photo looks very bright and may lose detail in print.");
   }
 
-  if (brightnessScore !== null && brightnessScore < 0.18) {
-    warnings.push("Photo may be too dark and could need manual review before printing.");
+  if (
+    estimatedPrintQuality !== EstimatedPrintQuality.LOW &&
+    fileSizeBytes < verySmallFileBytes &&
+    sharpnessScore !== null &&
+    sharpnessScore < 0.05
+  ) {
+    warnings.push("This photo is small or compressed, so it may print a little soft.");
   }
 
-  if (brightnessScore !== null && brightnessScore > 0.92) {
-    warnings.push("Photo may be very bright and could lose detail in print.");
-  }
-
-  if (sharpnessScore !== null && sharpnessScore < 0.08) {
-    warnings.push("Photo may be soft or blurry and could need manual review.");
-  }
-
-  return warnings;
+  return warnings.slice(0, 1);
 }
 
 export function summarizePhotoAnalysis(photos: PhotoSummaryInput[]) {

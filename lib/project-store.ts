@@ -56,6 +56,18 @@ export const editableFitModes = [
 
 export type EditableFitMode = (typeof editableFitModes)[number];
 
+export const implementedFitModes = [
+  "cover",
+  "contain_blur",
+  "smart_crop"
+] as const satisfies readonly EditableFitMode[];
+
+export type ImplementedFitMode = (typeof implementedFitModes)[number];
+
+export function isImplementedFitMode(value: string): value is ImplementedFitMode {
+  return implementedFitModes.includes(value as ImplementedFitMode);
+}
+
 export type GuestProjectSummary = {
   id: string;
   guestToken: string;

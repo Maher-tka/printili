@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import {
-  editableFitModes,
+  isImplementedFitMode,
   updateProjectPlacement,
-  type EditableFitMode
+  type ImplementedFitMode
 } from "@/lib/project-store";
 
 export const runtime = "nodejs";
@@ -16,8 +16,8 @@ export async function PATCH(request: Request, { params }: PlacementRouteProps) {
   const body = (await request.json()) as Record<string, unknown>;
   const fitMode = typeof body.fitMode === "string" ? body.fitMode : "cover";
 
-  if (!editableFitModes.includes(fitMode as EditableFitMode)) {
-    return NextResponse.json({ message: "Choose a valid fit mode." }, { status: 400 });
+  if (!isImplementedFitMode(fitMode)) {
+    return NextResponse.json({ message: "Choose a supported fit mode." }, { status: 400 });
   }
 
   const placementId = typeof body.placementId === "string" ? body.placementId : undefined;
@@ -28,16 +28,17 @@ export async function PATCH(request: Request, { params }: PlacementRouteProps) {
     return NextResponse.json({ message: "Choose a photo slot before saving." }, { status: 400 });
   }
 
+  const normalizedPlacement = normalizePlacementControls(body, fitMode);
   const project = await updateProjectPlacement({
     guestToken,
     placementId,
     slotId,
     photoId,
-    zoom: normalizeNumber(body.zoom, 1, 0.5, 2.8),
-    offsetX: normalizeNumber(body.offsetX, 0, -80, 80),
-    offsetY: normalizeNumber(body.offsetY, 0, -80, 80),
-    rotation: normalizeNumber(body.rotation, 0, -45, 45),
-    fitMode: fitMode as EditableFitMode
+    zoom: normalizedPlacement.zoom,
+    offsetX: normalizedPlacement.offsetX,
+    offsetY: normalizedPlacement.offsetY,
+    rotation: normalizedPlacement.rotation,
+    fitMode
   });
 
   if (!project) {
@@ -45,6 +46,24 @@ export async function PATCH(request: Request, { params }: PlacementRouteProps) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+function normalizePlacementControls(body: Record<string, unknown>, fitMode: ImplementedFitMode) {
+  if (fitMode === "contain_blur") {
+    return {
+      zoom: 1,
+      offsetX: 0,
+      offsetY: 0,
+      rotation: 0
+    };
+  }
+
+  return {
+    zoom: normalizeNumber(body.zoom, 1, 1, 2.8),
+    offsetX: normalizeNumber(body.offsetX, 0, -80, 80),
+    offsetY: normalizeNumber(body.offsetY, 0, -80, 80),
+    rotation: normalizeNumber(body.rotation, 0, -45, 45)
+  };
 }
 
 function normalizeNumber(value: unknown, fallback: number, min: number, max: number) {

@@ -73,7 +73,7 @@ See `PRINT_EXPORT_NOTES.md` for current export behavior and limitations.
 
 - Local JSON storage is development-only and is rejected in production.
 - Print export embeds a high-quality raster into PDF rather than vector layers.
-- Smart crop, face priority, and subject priority are placeholders and currently render like cover.
+- Smart crop is implemented with orientation-aware placement; face priority and subject priority stay hidden until real detection metadata exists.
 - Frame, gift wrap, premium paper, urgent orders, and delivery fees are pricing placeholders.
 - Online payment is intentionally not implemented; payment is cash on delivery only.
 

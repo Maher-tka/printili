@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { updateOrderGeneratedFiles, type OrderSummary } from "@/lib/order-store";
+import { getEffectivePlacementControls } from "@/lib/placement-fit";
 import { getGuestProject } from "@/lib/project-store";
 import {
   getPublicTemplateBySlug,
@@ -53,11 +54,18 @@ export async function generatePrintExport(order: OrderSummary) {
     const slotBox = toPixelBox(slot, dimensions.widthPx, dimensions.heightPx);
     const isPolaroid = template.slug === "a4-9-polaroid-cut-sheet";
     const imageBox = isPolaroid ? getPolaroidImageBox(slotBox) : slotBox;
+    const effectivePlacement = getEffectivePlacementControls({
+      placement,
+      photo,
+      slot,
+      targetAspectRatio: imageBox.width / imageBox.height
+    });
     const imageBuffer = await renderSlotImage({
       imagePath,
       width: imageBox.width,
       height: imageBox.height,
-      fitMode: placement.fitMode === "contain_blur" ? "contain_blur" : "cover"
+      fitMode: placement.fitMode === "contain_blur" ? "contain_blur" : "cover",
+      placement: effectivePlacement
     });
 
     if (isPolaroid) {
@@ -171,12 +179,19 @@ async function renderSlotImage({
   imagePath,
   width,
   height,
-  fitMode
+  fitMode,
+  placement
 }: {
   imagePath: string;
   width: number;
   height: number;
   fitMode: "cover" | "contain_blur";
+  placement: {
+    zoom: number;
+    offsetX: number;
+    offsetY: number;
+    rotation: number;
+  };
 }) {
   const image = sharp(await readFile(imagePath), { failOn: "none" });
 
@@ -201,7 +216,51 @@ async function renderSlotImage({
       .toBuffer();
   }
 
-  return image.resize(width, height, { fit: "cover" }).jpeg({ quality: 94 }).toBuffer();
+  return renderCoverSlotImage({ image, width, height, placement });
+}
+
+async function renderCoverSlotImage({
+  image,
+  width,
+  height,
+  placement
+}: {
+  image: ReturnType<typeof sharp>;
+  width: number;
+  height: number;
+  placement: {
+    zoom: number;
+    offsetX: number;
+    offsetY: number;
+    rotation: number;
+  };
+}) {
+  const zoom = clampFinite(placement.zoom, 1, 2.8, 1);
+  const rotation = clampFinite(placement.rotation, -45, 45, 0);
+  const radians = Math.abs((rotation * Math.PI) / 180);
+  const rotatedCoverageWidth = width * Math.cos(radians) + height * Math.sin(radians);
+  const rotatedCoverageHeight = width * Math.sin(radians) + height * Math.cos(radians);
+  const resizeWidth = Math.max(width, Math.ceil(rotatedCoverageWidth * zoom));
+  const resizeHeight = Math.max(height, Math.ceil(rotatedCoverageHeight * zoom));
+  const rotatedBuffer = await image
+    .resize(resizeWidth, resizeHeight, { fit: "cover" })
+    .rotate(rotation, { background: { r: 255, g: 250, b: 243, alpha: 1 } })
+    .png()
+    .toBuffer();
+  const rotatedImage = sharp(rotatedBuffer);
+  const metadata = await rotatedImage.metadata();
+  const sourceWidth = metadata.width ?? width;
+  const sourceHeight = metadata.height ?? height;
+  const maxLeft = Math.max(0, sourceWidth - width);
+  const maxTop = Math.max(0, sourceHeight - height);
+  const left = Math.round(
+    clampFinite(sourceWidth / 2 - width / 2 - (placement.offsetX / 100) * width, 0, maxLeft, 0)
+  );
+  const top = Math.round(
+    clampFinite(sourceHeight / 2 - height / 2 - (placement.offsetY / 100) * height, 0, maxTop, 0)
+  );
+
+  return rotatedImage.extract({ left, top, width, height }).jpeg({ quality: 94 }).toBuffer();
 }
 
 function renderTextAndGuidesSvg({
@@ -331,6 +390,16 @@ function getLocalUploadPath(originalUrl: string) {
   }
 
   return path.join(process.cwd(), ".local-storage", "uploads", originalUrl.replace("local://", ""));
+}
+
+function clampFinite(value: unknown, min: number, max: number, fallback: number) {
+  const numeric = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, numeric));
 }
 
 function escapeXml(value: string) {
