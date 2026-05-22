@@ -13,8 +13,15 @@ type TemplateFiltersProps = {
   selectedPricedOnly?: boolean;
 };
 
-const sheetSizes: SheetSize[] = ["A4", "A3"];
-const productTypes: ProductType[] = ["poster", "cut_sheet", "framed_gift", "digital_printable"];
+const sheetSizes: SheetSize[] = ["A4", "A3", "custom"];
+const productTypes: ProductType[] = [
+  "poster",
+  "cut_sheet",
+  "framed_gift",
+  "digital_printable",
+  "label",
+  "sticker"
+];
 
 export function TemplateFilters({
   selectedCategory,
@@ -34,10 +41,7 @@ export function TemplateFilters({
   );
 
   return (
-    <form
-      action="/templates"
-      className="printili-template-filters"
-    >
+    <form action="/templates" className="printili-template-filters">
       <label className="printili-template-filters__field">
         Occasion
         <select
@@ -112,9 +116,7 @@ export function TemplateFilters({
       </label>
 
       <div className="printili-template-filters__action">
-        <button className="focus-ring">
-          Filter
-        </button>
+        <button className="focus-ring">Filter</button>
       </div>
 
       <div className="printili-template-filters__footer">
@@ -129,13 +131,9 @@ export function TemplateFilters({
           Show priced templates only
         </label>
         {hasActiveFilters ? (
-          <Link href="/templates">
-            Clear filters
-          </Link>
+          <Link href="/templates">Clear filters</Link>
         ) : (
-          <span>
-            Narrow by occasion, format, photo count, and delivery style.
-          </span>
+          <span>Narrow by occasion, format, photo count, and delivery style.</span>
         )}
       </div>
     </form>

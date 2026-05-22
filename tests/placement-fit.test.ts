@@ -53,7 +53,10 @@ describe("placement fit helpers", () => {
       zoom: 1,
       offsetX: 0,
       offsetY: 0,
-      rotation: 0
+      rotation: 0,
+      focusX: 50,
+      focusY: 50,
+      blurBackground: false
     });
   });
 
@@ -66,7 +69,10 @@ describe("placement fit helpers", () => {
       zoom: 1.1,
       offsetX: 2,
       offsetY: 4,
-      rotation: 5
+      rotation: 5,
+      focusX: 50,
+      focusY: 50,
+      blurBackground: false
     };
 
     const controls = getEffectivePlacementControls({

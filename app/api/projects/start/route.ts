@@ -20,6 +20,7 @@ const allowedCategories: TemplateCategoryId[] = [
   "family",
   "wedding",
   "cut_sheet",
+  "graduation",
   "custom"
 ];
 
@@ -113,10 +114,7 @@ export async function POST(request: Request) {
   }
 }
 
-function validateFields(
-  category: FormDataEntryValue | null,
-  files: File[]
-) {
+function validateFields(category: FormDataEntryValue | null, files: File[]) {
   if (typeof category !== "string" || !allowedCategories.includes(category as TemplateCategoryId)) {
     return "Choose a gift category before uploading your photos.";
   }

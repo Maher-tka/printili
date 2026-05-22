@@ -17,7 +17,7 @@ import {
   getPublicTemplateBySlug,
   getPublicTemplateEditorLayout
 } from "@/lib/public-template-store";
-import { formatSheetSizeCm } from "@/lib/templates";
+import { formatTemplateSize } from "@/lib/templates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -88,7 +88,7 @@ export default async function AdminOrderPage({ params, searchParams }: AdminOrde
           {order.printFilePath ? (
             <a
               className="focus-ring inline-flex min-h-11 items-center justify-center rounded-full bg-charcoal px-4 text-sm font-semibold text-paper"
-              href={`/api/admin/orders/${order.id}/download`}
+              href={`/api/admin/orders/${order.id}/download?file=print`}
             >
               Download print PDF
             </a>
@@ -131,11 +131,13 @@ export default async function AdminOrderPage({ params, searchParams }: AdminOrde
             <p>Template: {order.templateSlug ?? "Template"}</p>
             <p>
               Sheet size:{" "}
-              {template
-                ? formatSheetSizeCm(template.sheetSize, template.orientation)
-                : (order.sheetSize ?? "Template size")}
+              {template ? formatTemplateSize(template) : (order.sheetSize ?? "Template size")}
             </p>
             <p>Quantity: {order.quantity}</p>
+            {order.totalPrice !== null ? <p>Total: {order.totalPrice.toFixed(2)} TND</p> : null}
+            {order.deliveryFee !== null ? (
+              <p>Delivery fee: {order.deliveryFee.toFixed(2)} TND</p>
+            ) : null}
             <p>Payment: Cash on delivery</p>
             <p>Product option: {order.productOption}</p>
             <p>Finish: {order.finish}</p>
@@ -246,10 +248,24 @@ export default async function AdminOrderPage({ params, searchParams }: AdminOrde
                 ) : null}
                 <a
                   className="focus-ring inline-flex min-h-10 items-center justify-center rounded-full bg-charcoal px-4 text-sm font-semibold text-paper"
-                  href={`/api/admin/orders/${order.id}/download`}
+                  href={`/api/admin/orders/${order.id}/download?file=print`}
                 >
                   Download print PDF
                 </a>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <a
+                    className="focus-ring inline-flex min-h-10 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.4)] bg-paper px-4 text-sm font-semibold text-charcoal"
+                    href={`/api/admin/orders/${order.id}/download?file=preview`}
+                  >
+                    Preview JPG
+                  </a>
+                  <a
+                    className="focus-ring inline-flex min-h-10 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.4)] bg-paper px-4 text-sm font-semibold text-charcoal"
+                    href={`/api/admin/orders/${order.id}/download?file=summary`}
+                  >
+                    Summary JSON
+                  </a>
+                </div>
               </>
             ) : (
               <p>No print PDF has been generated yet.</p>
@@ -365,6 +381,7 @@ export default async function AdminOrderPage({ params, searchParams }: AdminOrde
                 </select>
               </label>
               <input name="note" type="hidden" value="Manual status correction by admin." />
+              <input name="allowOverride" type="hidden" value="true" />
               <button
                 className="focus-ring min-h-10 rounded-full bg-charcoal px-4 text-sm font-semibold text-paper"
                 type="submit"
@@ -448,6 +465,13 @@ function getWorkflowMessage(searchParams: Record<string, string | string[] | und
     return {
       tone: "error" as const,
       text: "Choose a valid order status."
+    };
+  }
+
+  if (statusState === "blocked") {
+    return {
+      tone: "error" as const,
+      text: "That status jump is blocked by the production workflow. Use the exact status override only for intentional corrections."
     };
   }
 

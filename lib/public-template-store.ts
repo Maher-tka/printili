@@ -18,6 +18,7 @@ import {
   hasConfiguredDatabaseUrl,
   isProductionRuntime
 } from "@/lib/runtime-config";
+import { assertValidPublicTemplate } from "@/lib/template-validation";
 import type { TemplateFilterInput } from "@/lib/templates";
 import type {
   PageOrientation,
@@ -47,6 +48,9 @@ type SaveTemplateInput = {
   productType?: ProductType | string;
   sheetSize?: SheetSize | string;
   orientation?: PageOrientation | string;
+  widthMm?: number;
+  heightMm?: number;
+  productKind?: string;
   minPhotos?: number;
   maxPhotos?: number;
   description?: string;
@@ -75,6 +79,7 @@ export type TemplateAdminMetadata = {
   priceLabel?: string;
   ctaLabel?: string;
   isHidden?: boolean;
+  isFeatured?: boolean;
   updatedAt?: string;
 };
 
@@ -128,6 +133,7 @@ const categoryLabels: Record<TemplateCategoryId, string> = {
   family: "Family",
   wedding: "Wedding",
   cut_sheet: "Cut Sheets",
+  graduation: "Graduation",
   custom: "Custom Gifts"
 };
 
@@ -138,6 +144,7 @@ const categoryToPrisma: Record<TemplateCategoryId, PrismaTemplateCategory> = {
   family: PrismaTemplateCategory.FAMILY,
   wedding: PrismaTemplateCategory.WEDDING,
   cut_sheet: PrismaTemplateCategory.CUT_SHEET,
+  graduation: PrismaTemplateCategory.GRADUATION,
   custom: PrismaTemplateCategory.CUSTOM
 };
 
@@ -148,6 +155,7 @@ const prismaToCategory: Record<PrismaTemplateCategory, TemplateCategoryId> = {
   [PrismaTemplateCategory.FAMILY]: "family",
   [PrismaTemplateCategory.WEDDING]: "wedding",
   [PrismaTemplateCategory.CUT_SHEET]: "cut_sheet",
+  [PrismaTemplateCategory.GRADUATION]: "graduation",
   [PrismaTemplateCategory.CUSTOM]: "custom"
 };
 
@@ -155,14 +163,18 @@ const productTypeToPrisma: Record<ProductType, PrismaProductType> = {
   poster: PrismaProductType.POSTER,
   cut_sheet: PrismaProductType.CUT_SHEET,
   framed_gift: PrismaProductType.FRAMED_GIFT,
-  digital_printable: PrismaProductType.DIGITAL_PRINTABLE
+  digital_printable: PrismaProductType.DIGITAL_PRINTABLE,
+  label: PrismaProductType.LABEL,
+  sticker: PrismaProductType.STICKER
 };
 
 const prismaToProductType: Record<PrismaProductType, ProductType> = {
   [PrismaProductType.POSTER]: "poster",
   [PrismaProductType.CUT_SHEET]: "cut_sheet",
   [PrismaProductType.FRAMED_GIFT]: "framed_gift",
-  [PrismaProductType.DIGITAL_PRINTABLE]: "digital_printable"
+  [PrismaProductType.DIGITAL_PRINTABLE]: "digital_printable",
+  [PrismaProductType.LABEL]: "label",
+  [PrismaProductType.STICKER]: "sticker"
 };
 
 const sheetSizeToPrisma: Record<SheetSize, PrismaSheetSize> = {
@@ -353,6 +365,7 @@ export async function updateTemplateAdminMetadata(input: Omit<TemplateAdminMetad
     priceLabel: trimToUndefined(input.priceLabel),
     ctaLabel: trimToUndefined(input.ctaLabel),
     isHidden: input.isHidden ?? previous?.isHidden,
+    isFeatured: input.isFeatured ?? previous?.isFeatured,
     updatedAt: new Date().toISOString()
   };
 
@@ -360,6 +373,46 @@ export async function updateTemplateAdminMetadata(input: Omit<TemplateAdminMetad
   await writeTemplateAdminMetadata(metadata);
 
   return next;
+}
+
+export async function duplicatePublicTemplate(slug: string): Promise<StoredTemplateRecord> {
+  const catalog = await getAdminTemplateCatalog();
+  const source = catalog.find((template) => template.slug === slug);
+
+  if (!source) {
+    throw new Error("Template not found.");
+  }
+
+  const existingSlugs = new Set(catalog.map((template) => template.slug));
+  const newSlug = getUniqueTemplateSlug(`${source.slug}-copy`, existingSlugs);
+  const layout = await getPublicTemplateEditorLayout(source.slug);
+  const duplicate: StoredTemplateRecord = {
+    ...source,
+    id: newSlug,
+    slug: newSlug,
+    name: `${source.name} Copy`,
+    isFeatured: false,
+    editorLayout: cloneEditorLayoutForTemplate(newSlug, layout),
+    savedAt: new Date().toISOString()
+  };
+
+  assertValidPublicTemplate({
+    template: duplicate,
+    layout: duplicate.editorLayout
+  });
+
+  if (hasConfiguredDatabaseUrl()) {
+    try {
+      await upsertDatabaseTemplate(duplicate);
+      return duplicate;
+    } catch (error) {
+      handleDatabaseFailure("Database template duplicate failed", error);
+    }
+  }
+
+  await upsertLocalTemplate(duplicate);
+
+  return duplicate;
 }
 
 export async function setPublicTemplateVisibility(slug: string, isHidden: boolean) {
@@ -396,6 +449,10 @@ export async function getPublicTemplateEditorLayout(slug: string): Promise<Templ
 
 export async function savePublicTemplate(input: SaveTemplateInput): Promise<SavedTemplateResult> {
   const template = await normalizeTemplateInput(input);
+  assertValidPublicTemplate({
+    template,
+    layout: template.editorLayout
+  });
 
   if (hasConfiguredDatabaseUrl()) {
     try {
@@ -491,6 +548,9 @@ async function normalizeTemplateInput(input: SaveTemplateInput): Promise<StoredT
     preferredSquareCount: orientationCounts.square,
     sheetSize,
     orientation,
+    widthMm: normalizeOptionalPositiveNumber(input.widthMm),
+    heightMm: normalizeOptionalPositiveNumber(input.heightMm),
+    productKind: trimToUndefined(input.productKind),
     supportedOrientations: getSupportedOrientations(orientationCounts),
     hasCutGuides: productType === "cut_sheet",
     cutLinePt: productType === "cut_sheet" ? 0.25 : undefined,
@@ -549,7 +609,8 @@ function normalizeCategory(value: string | undefined): TemplateCategoryId {
     normalized === "couple" ||
     normalized === "birthday" ||
     normalized === "family" ||
-    normalized === "wedding"
+    normalized === "wedding" ||
+    normalized === "graduation"
   ) {
     return normalized;
   }
@@ -561,7 +622,13 @@ function normalizeProductType(
   value: string | undefined,
   categoryId: TemplateCategoryId
 ): ProductType {
-  if (value === "poster" || value === "cut_sheet" || value === "framed_gift") {
+  if (
+    value === "poster" ||
+    value === "cut_sheet" ||
+    value === "framed_gift" ||
+    value === "label" ||
+    value === "sticker"
+  ) {
     return value;
   }
 
@@ -614,6 +681,12 @@ function normalizePositiveInt(value: number | undefined, fallback: number) {
   const number = Number(value);
 
   return Number.isFinite(number) && number > 0 ? Math.round(number) : fallback;
+}
+
+function normalizeOptionalPositiveNumber(value: number | undefined) {
+  const number = Number(value);
+
+  return Number.isFinite(number) && number > 0 ? number : undefined;
 }
 
 function createEditorLayout(slug: string, input: SaveTemplateInput): TemplateEditorLayout {
@@ -801,7 +874,8 @@ function applyAdminMetadata<TTemplate extends TemplateSeed>(
     categoryId: metadata.categoryId ?? template.categoryId,
     description: metadata.description ?? template.description,
     priceLabel: metadata.priceLabel ?? template.priceLabel,
-    ctaLabel: metadata.ctaLabel ?? template.ctaLabel
+    ctaLabel: metadata.ctaLabel ?? template.ctaLabel,
+    isFeatured: metadata.isFeatured ?? template.isFeatured
   };
 }
 
@@ -849,6 +923,7 @@ function normalizeTemplateAdminMetadata(value: unknown): TemplateAdminMetadata |
     priceLabel: getOptionalString(record.priceLabel),
     ctaLabel: getOptionalString(record.ctaLabel),
     isHidden: record.isHidden === true,
+    isFeatured: record.isFeatured === true,
     updatedAt: getOptionalString(record.updatedAt)
   };
 }
@@ -907,6 +982,40 @@ function getSafeAdminCategoryId(name: string, existingIds: Set<string>) {
   }
 
   return `${baseSlug}-${randomUUID().slice(0, 4)}`;
+}
+
+function getUniqueTemplateSlug(value: string, existingSlugs: Set<string>) {
+  const baseSlug = slugify(value) || `saved-template-${randomUUID().slice(0, 8)}`;
+
+  if (!existingSlugs.has(baseSlug) && !seedSlugs.has(baseSlug)) {
+    return baseSlug;
+  }
+
+  for (let index = 2; index < 100; index += 1) {
+    const candidate = `${baseSlug}-${index}`;
+
+    if (!existingSlugs.has(candidate) && !seedSlugs.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return `${baseSlug}-${randomUUID().slice(0, 6)}`;
+}
+
+function cloneEditorLayoutForTemplate(
+  slug: string,
+  layout: TemplateEditorLayout
+): TemplateEditorLayout {
+  return {
+    slots: layout.slots.map((slot, index) => ({
+      ...slot,
+      id: `${slug}-slot-${index + 1}`
+    })),
+    textFields: layout.textFields.map((field, index) => ({
+      ...field,
+      id: `${slug}-${field.key || `text-${index + 1}`}`
+    }))
+  };
 }
 
 function normalizeMetadataCategory(value: unknown): TemplateCategoryId | undefined {
@@ -1121,6 +1230,9 @@ async function upsertDatabaseTemplate(template: StoredTemplateRecord) {
       productType: productTypeToPrisma[template.productType],
       sheetSize: sheetSizeToPrisma[template.sheetSize],
       orientation: orientationToPrisma[template.orientation],
+      widthMm: template.widthMm,
+      heightMm: template.heightMm,
+      productKind: template.productKind,
       minPhotos: template.minPhotos,
       maxPhotos: template.maxPhotos,
       preferredPortraitCount: template.preferredPortraitCount,
@@ -1151,6 +1263,9 @@ async function upsertDatabaseTemplate(template: StoredTemplateRecord) {
       productType: productTypeToPrisma[template.productType],
       sheetSize: sheetSizeToPrisma[template.sheetSize],
       orientation: orientationToPrisma[template.orientation],
+      widthMm: template.widthMm,
+      heightMm: template.heightMm,
+      productKind: template.productKind,
       minPhotos: template.minPhotos,
       maxPhotos: template.maxPhotos,
       preferredPortraitCount: template.preferredPortraitCount,
@@ -1218,6 +1333,9 @@ function toTemplateSeedFromDatabase(template: {
   productType: PrismaProductType;
   sheetSize: PrismaSheetSize;
   orientation: PrismaTemplateOrientation;
+  widthMm: unknown;
+  heightMm: unknown;
+  productKind: string | null;
   minPhotos: number;
   maxPhotos: number;
   preferredPortraitCount: number;
@@ -1252,6 +1370,9 @@ function toTemplateSeedFromDatabase(template: {
     preferredSquareCount: template.preferredSquareCount,
     sheetSize,
     orientation,
+    widthMm: template.widthMm === null ? undefined : Number(template.widthMm),
+    heightMm: template.heightMm === null ? undefined : Number(template.heightMm),
+    productKind: template.productKind ?? undefined,
     supportedOrientations: getSupportedOrientations({
       portrait: template.preferredPortraitCount,
       landscape: template.preferredLandscapeCount,

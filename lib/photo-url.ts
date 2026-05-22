@@ -1,4 +1,13 @@
-export function getPhotoSource(originalUrl: string, { lowRes = false }: { lowRes?: boolean } = {}) {
+export function getPhotoSource(
+  originalUrl: string,
+  {
+    lowRes = false,
+    preview
+  }: {
+    lowRes?: boolean;
+    preview?: "editor" | "low";
+  } = {}
+) {
   if (!originalUrl.startsWith("local://")) {
     return originalUrl;
   }
@@ -9,5 +18,7 @@ export function getPhotoSource(originalUrl: string, { lowRes = false }: { lowRes
     .map((segment) => encodeURIComponent(segment))
     .join("/")}`;
 
-  return lowRes ? `${uploadPath}?preview=low` : uploadPath;
+  const previewMode = preview ?? (lowRes ? "low" : undefined);
+
+  return previewMode ? `${uploadPath}?preview=${previewMode}` : uploadPath;
 }

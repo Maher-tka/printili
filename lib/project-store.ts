@@ -43,11 +43,15 @@ export type ProjectPlacementSummary = {
   offsetX: number;
   offsetY: number;
   rotation: number;
+  focusX: number;
+  focusY: number;
+  blurBackground: boolean;
   fitMode: EditableFitMode;
 };
 
 export const editableFitModes = [
   "cover",
+  "contain",
   "contain_blur",
   "smart_crop",
   "face_priority",
@@ -58,6 +62,7 @@ export type EditableFitMode = (typeof editableFitModes)[number];
 
 export const implementedFitModes = [
   "cover",
+  "contain",
   "contain_blur",
   "smart_crop"
 ] as const satisfies readonly EditableFitMode[];
@@ -106,6 +111,7 @@ const categoryToPrisma: Record<TemplateCategoryId, TemplateCategory> = {
   family: TemplateCategory.FAMILY,
   wedding: TemplateCategory.WEDDING,
   cut_sheet: TemplateCategory.CUT_SHEET,
+  graduation: TemplateCategory.GRADUATION,
   custom: TemplateCategory.CUSTOM
 };
 
@@ -116,6 +122,7 @@ const prismaToCategory: Record<TemplateCategory, TemplateCategoryId> = {
   [TemplateCategory.FAMILY]: "family",
   [TemplateCategory.WEDDING]: "wedding",
   [TemplateCategory.CUT_SHEET]: "cut_sheet",
+  [TemplateCategory.GRADUATION]: "graduation",
   [TemplateCategory.CUSTOM]: "custom"
 };
 
@@ -325,6 +332,9 @@ export async function chooseTemplateForProject({
               offsetX: placement.offsetX,
               offsetY: placement.offsetY,
               rotation: placement.rotation,
+              focusX: placement.focusX,
+              focusY: placement.focusY,
+              blurBackground: placement.blurBackground,
               fitMode: FitMode.COVER
             }))
           },
@@ -447,7 +457,7 @@ async function readLocalStore(): Promise<LocalProjectRecord[]> {
 function withLocalDefaults(project: LocalProjectRecord): LocalProjectRecord {
   return {
     ...project,
-    placements: project.placements ?? [],
+    placements: (project.placements ?? []).map(withPlacementDefaults),
     textValues: project.textValues ?? {},
     designApproved: project.designApproved ?? false,
     clientApprovedPreview: project.clientApprovedPreview ?? false
@@ -492,6 +502,9 @@ function toSummary(
       offsetX: unknown;
       offsetY: unknown;
       rotation: unknown;
+      focusX?: unknown;
+      focusY?: unknown;
+      blurBackground?: boolean | null;
       fitMode: FitMode;
     }>;
     textValues?: Array<{
@@ -536,6 +549,9 @@ function toSummary(
       offsetX: Number(placement.offsetX),
       offsetY: Number(placement.offsetY),
       rotation: Number(placement.rotation),
+      focusX: normalizePlacementPercent(placement.focusX, 50),
+      focusY: normalizePlacementPercent(placement.focusY, 50),
+      blurBackground: placement.blurBackground ?? placement.fitMode === FitMode.CONTAIN_BLUR,
       fitMode: fromPrismaFitMode(placement.fitMode)
     })),
     textValues: Object.fromEntries(
@@ -561,6 +577,9 @@ export function createDefaultPlacementInputs({
     offsetX: 0,
     offsetY: 0,
     rotation: 0,
+    focusX: 50,
+    focusY: 50,
+    blurBackground: false,
     fitMode: "cover"
   }));
 }
@@ -573,6 +592,9 @@ export async function updateProjectPlacement({
   offsetX,
   offsetY,
   rotation,
+  focusX,
+  focusY,
+  blurBackground,
   fitMode,
   photoId
 }: {
@@ -584,6 +606,9 @@ export async function updateProjectPlacement({
   offsetX: number;
   offsetY: number;
   rotation: number;
+  focusX: number;
+  focusY: number;
+  blurBackground: boolean;
   fitMode: EditableFitMode;
 }) {
   if (hasConfiguredDatabaseUrl()) {
@@ -608,23 +633,44 @@ export async function updateProjectPlacement({
         placementId ? item.id === placementId : item.slotId === slotId
       );
 
-      if (!project || !placement) {
+      if (!project || (!placement && (!slotId || !photoId))) {
         return null;
       }
 
-      await prisma.projectPlacement.update({
-        where: {
-          id: placement.id
-        },
-        data: {
-          zoom,
-          offsetX,
-          offsetY,
-          rotation,
-          fitMode: toPrismaFitMode(fitMode),
-          ...(photoId ? { photo: { connect: { id: photoId } } } : {})
-        }
-      });
+      if (placement) {
+        await prisma.projectPlacement.update({
+          where: {
+            id: placement.id
+          },
+          data: {
+            zoom,
+            offsetX,
+            offsetY,
+            rotation,
+            focusX,
+            focusY,
+            blurBackground,
+            fitMode: toPrismaFitMode(fitMode),
+            ...(photoId ? { photo: { connect: { id: photoId } } } : {})
+          }
+        });
+      } else {
+        await prisma.projectPlacement.create({
+          data: {
+            projectId: project.id,
+            slotId: slotId!,
+            photoId: photoId!,
+            zoom,
+            offsetX,
+            offsetY,
+            rotation,
+            focusX,
+            focusY,
+            blurBackground,
+            fitMode: toPrismaFitMode(fitMode)
+          }
+        });
+      }
 
       return getGuestProject(guestToken);
     } catch (error) {
@@ -637,20 +683,39 @@ export async function updateProjectPlacement({
       placementId ? placement.id === placementId : placement.slotId === slotId
     );
 
-    if (placementIndex === -1) {
+    if (placementIndex === -1 && (!slotId || !photoId)) {
       return null;
     }
 
     const placements = [...project.placements];
-    placements[placementIndex] = {
-      ...placements[placementIndex],
-      zoom,
-      offsetX,
-      offsetY,
-      rotation,
-      fitMode,
-      photoId: photoId ?? placements[placementIndex].photoId
-    };
+    if (placementIndex === -1) {
+      placements.push({
+        id: `placement-${placements.length + 1}`,
+        slotId: slotId!,
+        photoId: photoId!,
+        zoom,
+        offsetX,
+        offsetY,
+        rotation,
+        focusX,
+        focusY,
+        blurBackground,
+        fitMode
+      });
+    } else {
+      placements[placementIndex] = {
+        ...placements[placementIndex],
+        zoom,
+        offsetX,
+        offsetY,
+        rotation,
+        focusX,
+        focusY,
+        blurBackground,
+        fitMode,
+        photoId: photoId ?? placements[placementIndex].photoId
+      };
+    }
 
     return {
       ...project,
@@ -658,6 +723,60 @@ export async function updateProjectPlacement({
       placements
     };
   });
+}
+
+export async function deleteProjectPlacement({
+  guestToken,
+  placementId,
+  slotId
+}: {
+  guestToken: string;
+  placementId?: string;
+  slotId?: string;
+}) {
+  if (hasConfiguredDatabaseUrl()) {
+    try {
+      const prisma = await getPrismaClient();
+      const project = await prisma.project.findUnique({
+        where: {
+          guestToken
+        },
+        select: {
+          placements: {
+            select: {
+              id: true,
+              slotId: true
+            }
+          }
+        }
+      });
+      const placement = project?.placements.find((item) =>
+        placementId ? item.id === placementId : item.slotId === slotId
+      );
+
+      if (!placement) {
+        return null;
+      }
+
+      await prisma.projectPlacement.delete({
+        where: {
+          id: placement.id
+        }
+      });
+
+      return getGuestProject(guestToken);
+    } catch (error) {
+      handleDatabaseFailure("Database placement delete failed", error);
+    }
+  }
+
+  return updateLocalProject(guestToken, (project) => ({
+    ...project,
+    status: "editing",
+    placements: project.placements.filter((placement) =>
+      placementId ? placement.id !== placementId : placement.slotId !== slotId
+    )
+  }));
 }
 
 export async function updateProjectTextValue({
@@ -777,6 +896,10 @@ async function updateLocalProject(
 }
 
 function fromPrismaFitMode(fitMode: FitMode): EditableFitMode {
+  if (fitMode === FitMode.CONTAIN) {
+    return "contain";
+  }
+
   if (fitMode === FitMode.CONTAIN_BLUR) {
     return "contain_blur";
   }
@@ -797,6 +920,10 @@ function fromPrismaFitMode(fitMode: FitMode): EditableFitMode {
 }
 
 function toPrismaFitMode(fitMode: EditableFitMode) {
+  if (fitMode === "contain") {
+    return FitMode.CONTAIN;
+  }
+
   if (fitMode === "contain_blur") {
     return FitMode.CONTAIN_BLUR;
   }
@@ -814,6 +941,25 @@ function toPrismaFitMode(fitMode: EditableFitMode) {
   }
 
   return FitMode.COVER;
+}
+
+function withPlacementDefaults(placement: ProjectPlacementSummary): ProjectPlacementSummary {
+  return {
+    ...placement,
+    focusX: normalizePlacementPercent(placement.focusX, 50),
+    focusY: normalizePlacementPercent(placement.focusY, 50),
+    blurBackground: placement.blurBackground ?? placement.fitMode === "contain_blur"
+  };
+}
+
+function normalizePlacementPercent(value: unknown, fallback: number) {
+  const numeric = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+
+  return Math.min(100, Math.max(0, numeric));
 }
 
 async function getPrismaClient() {

@@ -8,9 +8,26 @@ import {
   getPublicTemplateBySlug,
   getPublicTemplateEditorLayout
 } from "@/lib/public-template-store";
+import {
+  POLAROID_TEMPLATE_SLUG,
+  getEditableTextStyle,
+  getPolaroidCaptionStyleScope,
+  getPolaroidCaptionTextKey,
+  type EditableTextStyle,
+  type TextAlignment
+} from "@/lib/text-style-options";
 import type { TemplateEditorLayout, TemplateSeed, TemplateSlotSeed } from "@/types/templates";
 
 const exportRoot = path.join(process.cwd(), ".local-storage", "exports");
+const localUploadRoot = path.join(process.cwd(), ".local-storage", "uploads");
+
+export type PrintDimensions = {
+  widthMm: number;
+  heightMm: number;
+  widthPx: number;
+  heightPx: number;
+  dpi: number;
+};
 
 export async function generatePrintExport(order: OrderSummary) {
   const project = await getGuestProject(order.guestToken);
@@ -27,6 +44,12 @@ export async function generatePrintExport(order: OrderSummary) {
 
   const layout = await getPublicTemplateEditorLayout(template.slug);
   const dimensions = getPrintDimensions(template);
+  const validation = validateExportInput({ project, template, layout });
+
+  if (validation.errors.length > 0) {
+    throw new Error(validation.errors.join(" "));
+  }
+
   const base = sharp({
     create: {
       width: dimensions.widthPx,
@@ -64,7 +87,12 @@ export async function generatePrintExport(order: OrderSummary) {
       imagePath,
       width: imageBox.width,
       height: imageBox.height,
-      fitMode: placement.fitMode === "contain_blur" ? "contain_blur" : "cover",
+      fitMode:
+        placement.fitMode === "contain_blur" || placement.blurBackground
+          ? "contain_blur"
+          : placement.fitMode === "contain"
+            ? "contain"
+            : "cover",
       placement: effectivePlacement
     });
 
@@ -120,15 +148,47 @@ export async function generatePrintExport(order: OrderSummary) {
     widthPt: dimensions.widthMm * 2.83464567,
     heightPt: dimensions.heightMm * 2.83464567
   });
-  const exportDir = path.join(exportRoot, order.orderNumber);
-  const pdfFileName = `ORDER-${order.orderNumber}_${template.sheetSize}_${template.slug}_PRINT.pdf`;
-  const previewFileName = `ORDER-${order.orderNumber}_PREVIEW_WATERMARK.jpg`;
-  const pdfPath = path.join(exportDir, pdfFileName);
-  const previewPath = path.join(exportDir, previewFileName);
+  const exportDir = getExportDirectory(order.orderNumber);
+  const pdfPath = getExportPathForOrderFile(order.orderNumber, "print");
+  const previewPath = getExportPathForOrderFile(order.orderNumber, "preview");
+  const summaryPath = getExportPathForOrderFile(order.orderNumber, "summary");
+  const productionSummary = {
+    order: {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      projectCode: order.projectCode,
+      quantity: order.quantity,
+      city: order.city,
+      totalPrice: order.totalPrice,
+      deliveryFee: order.deliveryFee
+    },
+    template: {
+      slug: template.slug,
+      name: template.name,
+      sheetSize: template.sheetSize,
+      productType: template.productType,
+      productKind: template.productKind ?? null,
+      widthMm: dimensions.widthMm,
+      heightMm: dimensions.heightMm,
+      dpi: dimensions.dpi
+    },
+    slotCount: layout.slots.length,
+    photoFileNames: project.photos.map((photo) => photo.fileName),
+    qualityWarnings: project.photos.flatMap((photo, index) =>
+      photo.qualityWarnings.map((warning) => ({
+        photo: index + 1,
+        fileName: photo.fileName,
+        warning
+      }))
+    ),
+    exportTimestamp: new Date().toISOString(),
+    validationWarnings: validation.warnings
+  };
 
   await mkdir(exportDir, { recursive: true });
   await writeFile(pdfPath, pdfBuffer);
   await writeFile(previewPath, previewJpeg);
+  await writeFile(summaryPath, JSON.stringify(productionSummary, null, 2));
   await updateOrderGeneratedFiles({
     orderId: order.id,
     printFilePath: pdfPath,
@@ -137,11 +197,24 @@ export async function generatePrintExport(order: OrderSummary) {
 
   return {
     printFilePath: pdfPath,
-    previewFilePath: previewPath
+    previewFilePath: previewPath,
+    summaryFilePath: summaryPath
   };
 }
 
-function getPrintDimensions(template: TemplateSeed) {
+export function getPrintDimensions(template: TemplateSeed): PrintDimensions {
+  if (template.sheetSize === "custom" && template.widthMm && template.heightMm) {
+    const dpi = template.dpi || 300;
+
+    return {
+      widthMm: template.widthMm,
+      heightMm: template.heightMm,
+      widthPx: Math.round((template.widthMm / 25.4) * dpi),
+      heightPx: Math.round((template.heightMm / 25.4) * dpi),
+      dpi
+    };
+  }
+
   const isA3 = template.sheetSize === "A3";
   const widthMm = isA3 ? 297 : 210;
   const heightMm = isA3 ? 420 : 297;
@@ -149,8 +222,49 @@ function getPrintDimensions(template: TemplateSeed) {
   const heightPx = isA3 ? 4961 : 3508;
 
   return template.orientation === "landscape"
-    ? { widthMm: heightMm, heightMm: widthMm, widthPx: heightPx, heightPx: widthPx }
-    : { widthMm, heightMm, widthPx, heightPx };
+    ? { widthMm: heightMm, heightMm: widthMm, widthPx: heightPx, heightPx: widthPx, dpi: 300 }
+    : { widthMm, heightMm, widthPx, heightPx, dpi: 300 };
+}
+
+function validateExportInput({
+  project,
+  template,
+  layout
+}: {
+  project: Awaited<ReturnType<typeof getGuestProject>>;
+  template: TemplateSeed;
+  layout: TemplateEditorLayout;
+}) {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (!project) {
+    return {
+      errors: ["Project was not found for export."],
+      warnings
+    };
+  }
+
+  if (layout.slots.length === 0) {
+    errors.push("Template has no photo slots.");
+  }
+
+  const filledSlotIds = new Set(project.placements.map((placement) => placement.slotId));
+  const missingRequiredSlots = layout.slots
+    .slice(0, Math.min(template.minPhotos, layout.slots.length))
+    .filter((slot) => !filledSlotIds.has(slot.id));
+
+  if (missingRequiredSlots.length > 0) {
+    errors.push("Required photo slots are not filled.");
+  }
+
+  for (const photo of project.photos) {
+    if (photo.qualityWarnings.length > 0) {
+      warnings.push(`${photo.fileName}: ${photo.qualityWarnings.join("; ")}`);
+    }
+  }
+
+  return { errors, warnings };
 }
 
 function toPixelBox(slot: TemplateSlotSeed, canvasWidth: number, canvasHeight: number) {
@@ -185,26 +299,43 @@ async function renderSlotImage({
   imagePath: string;
   width: number;
   height: number;
-  fitMode: "cover" | "contain_blur";
+  fitMode: "cover" | "contain" | "contain_blur";
   placement: {
     zoom: number;
     offsetX: number;
     offsetY: number;
     rotation: number;
+    focusX: number;
+    focusY: number;
+    blurBackground: boolean;
   };
 }) {
   const image = sharp(await readFile(imagePath), { failOn: "none" });
 
-  if (fitMode === "contain_blur") {
+  if (fitMode === "contain" || fitMode === "contain_blur") {
     const [background, foreground] = await Promise.all([
+      fitMode === "contain_blur"
+        ? image
+            .clone()
+            .resize(width, height, { fit: "cover" })
+            .blur(24)
+            .modulate({ brightness: 0.75, saturation: 0.9 })
+            .toBuffer()
+        : sharp({
+            create: {
+              width,
+              height,
+              channels: 4,
+              background: { r: 255, g: 250, b: 243, alpha: 1 }
+            }
+          })
+            .png()
+            .toBuffer(),
       image
         .clone()
-        .resize(width, height, { fit: "cover" })
-        .blur(24)
-        .modulate({ brightness: 0.75, saturation: 0.9 })
-        .toBuffer(),
-      image
-        .clone()
+        .rotate(clampFinite(placement.rotation, -90, 90, 0), {
+          background: { r: 0, g: 0, b: 0, alpha: 0 }
+        })
         .resize(width, height, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer()
@@ -233,18 +364,17 @@ async function renderCoverSlotImage({
     offsetX: number;
     offsetY: number;
     rotation: number;
+    focusX: number;
+    focusY: number;
   };
 }) {
   const zoom = clampFinite(placement.zoom, 1, 2.8, 1);
-  const rotation = clampFinite(placement.rotation, -45, 45, 0);
-  const radians = Math.abs((rotation * Math.PI) / 180);
-  const rotatedCoverageWidth = width * Math.cos(radians) + height * Math.sin(radians);
-  const rotatedCoverageHeight = width * Math.sin(radians) + height * Math.cos(radians);
-  const resizeWidth = Math.max(width, Math.ceil(rotatedCoverageWidth * zoom));
-  const resizeHeight = Math.max(height, Math.ceil(rotatedCoverageHeight * zoom));
+  const rotation = clampFinite(placement.rotation, -90, 90, 0);
+  const resizeWidth = Math.max(width, Math.ceil(width * zoom));
+  const resizeHeight = Math.max(height, Math.ceil(height * zoom));
   const rotatedBuffer = await image
-    .resize(resizeWidth, resizeHeight, { fit: "cover" })
     .rotate(rotation, { background: { r: 255, g: 250, b: 243, alpha: 1 } })
+    .resize(resizeWidth, resizeHeight, { fit: "cover" })
     .png()
     .toBuffer();
   const rotatedImage = sharp(rotatedBuffer);
@@ -253,12 +383,10 @@ async function renderCoverSlotImage({
   const sourceHeight = metadata.height ?? height;
   const maxLeft = Math.max(0, sourceWidth - width);
   const maxTop = Math.max(0, sourceHeight - height);
-  const left = Math.round(
-    clampFinite(sourceWidth / 2 - width / 2 - (placement.offsetX / 100) * width, 0, maxLeft, 0)
-  );
-  const top = Math.round(
-    clampFinite(sourceHeight / 2 - height / 2 - (placement.offsetY / 100) * height, 0, maxTop, 0)
-  );
+  const objectPositionX = clampFinite(placement.focusX - placement.offsetX, 0, 100, 50) / 100;
+  const objectPositionY = clampFinite(placement.focusY - placement.offsetY, 0, 100, 50) / 100;
+  const left = Math.round(clampFinite(sourceWidth * objectPositionX - width / 2, 0, maxLeft, 0));
+  const top = Math.round(clampFinite(sourceHeight * objectPositionY - height / 2, 0, maxTop, 0));
 
   return rotatedImage.extract({ left, top, width, height }).jpeg({ quality: 94 }).toBuffer();
 }
@@ -279,18 +407,129 @@ function renderTextAndGuidesSvg({
   const textNodes = layout.textFields
     .map((field) => {
       const value = escapeXml(textValues[field.key] ?? field.defaultValue ?? "");
+      const style = getEditableTextStyle({
+        defaultFontSize: field.fontSize,
+        scope: field.key,
+        textValues
+      });
+      const anchor = getSvgTextAnchor(style.align);
       const x = (field.x + field.width / 2) * widthPx;
       const y = (field.y + field.height / 2) * heightPx;
-      const fontSize = Math.max(18, field.fontSize * 3.2);
+      const fontSize = Math.max(18, style.fontSize * 3.2);
 
-      return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="#2d2926" font-family="Georgia, serif" font-size="${fontSize}">${value}</text>`;
+      return renderStyledSvgText({
+        anchor,
+        fontSize,
+        style,
+        value,
+        x,
+        y
+      });
     })
     .join("");
+  const polaroidCaptionNodes =
+    template.slug === POLAROID_TEMPLATE_SLUG
+      ? renderPolaroidCaptionNodes({
+          layout,
+          textValues,
+          widthPx,
+          heightPx
+        })
+      : "";
   const guideNodes = template.hasCutGuides ? renderCutGuides(template.slug, widthPx, heightPx) : "";
 
   return Buffer.from(
-    `<svg width="${widthPx}" height="${heightPx}" xmlns="http://www.w3.org/2000/svg">${textNodes}${guideNodes}</svg>`
+    `<svg width="${widthPx}" height="${heightPx}" xmlns="http://www.w3.org/2000/svg">${textNodes}${polaroidCaptionNodes}${guideNodes}</svg>`
   );
+}
+
+function renderPolaroidCaptionNodes({
+  layout,
+  textValues,
+  widthPx,
+  heightPx
+}: {
+  layout: TemplateEditorLayout;
+  textValues: Record<string, string>;
+  widthPx: number;
+  heightPx: number;
+}) {
+  return layout.slots
+    .map((slot) => {
+      const value = escapeXml(textValues[getPolaroidCaptionTextKey(slot.id)] ?? "");
+
+      if (!value.trim()) {
+        return "";
+      }
+
+      const style = getEditableTextStyle({
+        defaultFontSize: 18,
+        scope: getPolaroidCaptionStyleScope(slot.id),
+        textValues
+      });
+      const slotBox = toPixelBox(slot, widthPx, heightPx);
+      const captionLeft = slotBox.left + slotBox.width * 0.06;
+      const captionWidth = slotBox.width * 0.88;
+      const x = getAlignedSvgX(captionLeft, captionWidth, style.align);
+      const y = slotBox.top + slotBox.height * 0.895;
+      const fontSize = Math.max(24, slotBox.height * (style.fontSize / 300));
+
+      return renderStyledSvgText({
+        anchor: getSvgTextAnchor(style.align),
+        fontSize,
+        style,
+        value,
+        x,
+        y
+      });
+    })
+    .join("");
+}
+
+function renderStyledSvgText({
+  anchor,
+  fontSize,
+  style,
+  value,
+  x,
+  y
+}: {
+  anchor: "start" | "middle" | "end";
+  fontSize: number;
+  style: EditableTextStyle;
+  value: string;
+  x: number;
+  y: number;
+}) {
+  return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" fill="${escapeXml(
+    style.color
+  )}" font-family="${escapeXml(style.fontFamily)}, cursive" font-size="${fontSize}" font-style="${
+    style.isItalic ? "italic" : "normal"
+  }" font-weight="${style.isBold ? 700 : 400}">${value}</text>`;
+}
+
+function getAlignedSvgX(left: number, width: number, align: TextAlignment) {
+  if (align === "left") {
+    return left;
+  }
+
+  if (align === "right") {
+    return left + width;
+  }
+
+  return left + width / 2;
+}
+
+function getSvgTextAnchor(align: TextAlignment): "start" | "middle" | "end" {
+  if (align === "left") {
+    return "start";
+  }
+
+  if (align === "right") {
+    return "end";
+  }
+
+  return "middle";
 }
 
 function renderCutGuides(templateSlug: string, widthPx: number, heightPx: number) {
@@ -389,7 +628,36 @@ function getLocalUploadPath(originalUrl: string) {
     return null;
   }
 
-  return path.join(process.cwd(), ".local-storage", "uploads", originalUrl.replace("local://", ""));
+  const relativeKey = originalUrl.replace("local://", "");
+  const resolvedPath = path.resolve(localUploadRoot, relativeKey);
+
+  return isPathInsideDirectory(path.resolve(localUploadRoot), resolvedPath) ? resolvedPath : null;
+}
+
+export type ExportFileKind = "print" | "preview" | "summary";
+
+export function getExportPathForOrderFile(orderNumber: string, kind: ExportFileKind) {
+  const fileNameByKind: Record<ExportFileKind, string> = {
+    print: "print.pdf",
+    preview: "preview-watermark.jpg",
+    summary: "production-summary.json"
+  };
+
+  return path.join(getExportDirectory(orderNumber), fileNameByKind[kind]);
+}
+
+function getExportDirectory(orderNumber: string) {
+  return path.join(exportRoot, sanitizeExportOrderNumber(orderNumber));
+}
+
+export function sanitizeExportOrderNumber(orderNumber: string) {
+  return orderNumber.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 80) || "order";
+}
+
+export function isPathInsideDirectory(root: string, target: string) {
+  const relativePath = path.relative(root, target);
+
+  return Boolean(relativePath) && !relativePath.startsWith("..") && !path.isAbsolute(relativePath);
 }
 
 function clampFinite(value: unknown, min: number, max: number, fallback: number) {

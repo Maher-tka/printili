@@ -5,9 +5,16 @@ export type TemplateCategoryId =
   | "family"
   | "wedding"
   | "cut_sheet"
+  | "graduation"
   | "custom";
 
-export type ProductType = "poster" | "cut_sheet" | "framed_gift" | "digital_printable";
+export type ProductType =
+  | "poster"
+  | "cut_sheet"
+  | "framed_gift"
+  | "digital_printable"
+  | "label"
+  | "sticker";
 
 export type SheetSize = "A4" | "A3" | "custom";
 
@@ -79,6 +86,9 @@ export type TemplateSeed = {
   preferredSquareCount: number;
   sheetSize: SheetSize;
   orientation: PageOrientation;
+  widthMm?: number;
+  heightMm?: number;
+  productKind?: string;
   supportedOrientations: TemplateOrientation[];
   hasCutGuides: boolean;
   cutLinePt?: number;

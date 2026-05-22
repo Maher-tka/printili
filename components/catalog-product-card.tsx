@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCatalogProductSize } from "@/lib/catalog";
 import type { CatalogProduct } from "@/types/catalog";
@@ -30,6 +31,12 @@ export function CatalogProductCard({ product }: CatalogProductCardProps) {
             <li key={field}>{field.replaceAll("_", " ")}</li>
           ))}
         </ul>
+        <Link
+          className="focus-ring mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)]"
+          href={`/start?template=${product.slug}`}
+        >
+          Start this product
+        </Link>
       </CardContent>
     </Card>
   );

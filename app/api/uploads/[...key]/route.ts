@@ -27,18 +27,25 @@ export async function GET(request: Request, { params }: UploadRouteProps) {
     }
 
     const originalBody = await readFile(absolutePath);
-    const isLowResPreview = new URL(request.url).searchParams.get("preview") === "low";
-    const body = isLowResPreview
-      ? await sharp(originalBody, { failOn: "none" })
-          .resize({ width: 900, height: 900, fit: "inside", withoutEnlargement: true })
-          .jpeg({ quality: 58, progressive: true })
-          .toBuffer()
-      : originalBody;
+    const previewMode = new URL(request.url).searchParams.get("preview");
+    const body =
+      previewMode === "low"
+        ? await sharp(originalBody, { failOn: "none" })
+            .resize({ width: 900, height: 900, fit: "inside", withoutEnlargement: true })
+            .jpeg({ quality: 70, progressive: true, mozjpeg: true })
+            .toBuffer()
+        : previewMode === "editor"
+          ? await sharp(originalBody, { failOn: "none" })
+              .resize({ width: 2200, height: 2200, fit: "inside", withoutEnlargement: true })
+              .jpeg({ quality: 86, progressive: true, mozjpeg: true })
+              .toBuffer()
+          : originalBody;
+    const isPreview = previewMode === "low" || previewMode === "editor";
 
     return new Response(new Uint8Array(body), {
       headers: {
         "Cache-Control": "private, max-age=3600",
-        "Content-Type": isLowResPreview ? "image/jpeg" : getContentType(absolutePath)
+        "Content-Type": isPreview ? "image/jpeg" : getContentType(absolutePath)
       }
     });
   } catch {

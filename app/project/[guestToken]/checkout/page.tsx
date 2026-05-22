@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MontagePreview } from "@/components/montage-preview";
+import { calculateOrderPrice, formatMoney } from "@/lib/pricing";
 import { getGuestProject } from "@/lib/project-store";
 import {
   getPublicTemplateBySlug,
   getPublicTemplateEditorLayout
 } from "@/lib/public-template-store";
-import { formatSheetSizeCm } from "@/lib/templates";
+import { formatTemplateSize } from "@/lib/templates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -53,6 +54,28 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
   }
 
   const layout = await getPublicTemplateEditorLayout(template.slug);
+  const qualityWarningCount = project.photos.reduce(
+    (count, photo) => count + photo.qualityWarnings.length,
+    0
+  );
+  const missingTextFields = layout.textFields.filter(
+    (field) => field.isRequired && !project.textValues[field.key]?.trim()
+  );
+  const filledSlotIds = new Set(project.placements.map((placement) => placement.slotId));
+  const missingRequiredPhotos = layout.slots
+    .slice(0, Math.min(template.minPhotos, layout.slots.length))
+    .filter((slot) => !filledSlotIds.has(slot.id));
+  const startingPrice = calculateOrderPrice({
+    template,
+    quantity: 1,
+    productOption: "print_only",
+    addFrame: false,
+    giftWrap: false,
+    premiumPaper: false,
+    finish: "matte",
+    urgentOrder: false,
+    city: ""
+  });
 
   return (
     <section className="page-shell py-10 sm:py-14" aria-labelledby="checkout-heading">
@@ -72,7 +95,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
             depending on size, frame, and delivery.
           </p>
           <p className="mt-3 text-sm font-semibold text-charcoal">
-            Selected size: {formatSheetSizeCm(template.sheetSize, template.orientation)}
+            Selected size: {formatTemplateSize(template)}
           </p>
 
           <form
@@ -112,8 +135,8 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
                   name="productOption"
                 >
                   <option value="print_only">Print only</option>
-                  <option value="frame_placeholder">Frame option placeholder</option>
-                  <option value="gift_wrap_placeholder">Gift wrap placeholder</option>
+                  <option value="frame_placeholder">Framed print</option>
+                  <option value="gift_wrap_placeholder">Gift-ready package</option>
                 </select>
               </label>
             </div>
@@ -147,14 +170,78 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
                 </select>
               </label>
               <label className="grid gap-2 text-sm font-semibold text-charcoal">
-                Delivery fee placeholder
+                Delivery fee
                 <input
                   className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
-                  name="deliveryFee"
-                  placeholder="Confirmed on WhatsApp"
-                  type="number"
+                  readOnly
+                  value="Calculated by city"
                 />
               </label>
+            </div>
+
+            <div className="rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper p-4">
+              <p className="text-sm font-semibold text-charcoal">Before checkout checklist</p>
+              <ul className="mt-3 grid gap-2 text-sm text-charcoal-soft">
+                <ChecklistItem
+                  done={missingRequiredPhotos.length === 0}
+                  label={`${template.minPhotos} required photo spot${template.minPhotos === 1 ? "" : "s"} filled`}
+                />
+                <ChecklistItem
+                  done={missingTextFields.length === 0}
+                  label="Required text fields completed"
+                />
+                <ChecklistItem
+                  done={qualityWarningCount === 0}
+                  label={
+                    qualityWarningCount === 0
+                      ? "No photo quality warnings"
+                      : `${qualityWarningCount} photo warning${qualityWarningCount === 1 ? "" : "s"} to review`
+                  }
+                />
+              </ul>
+              {qualityWarningCount > 0 ? (
+                <label className="mt-4 flex items-center gap-3 text-sm font-semibold text-charcoal">
+                  <input
+                    className="size-4 accent-rose"
+                    name="acknowledgeQualityWarnings"
+                    required
+                    type="checkbox"
+                    value="true"
+                  />
+                  I understand the photo quality warnings.
+                </label>
+              ) : (
+                <input name="acknowledgeQualityWarnings" type="hidden" value="true" />
+              )}
+              <label className="mt-3 flex items-center gap-3 text-sm font-semibold text-charcoal">
+                <input
+                  className="size-4 accent-rose"
+                  name="previewApproved"
+                  required
+                  type="checkbox"
+                  value="true"
+                />
+                I approve this preview for printing.
+              </label>
+            </div>
+
+            <div className="rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper p-4">
+              <p className="text-sm font-semibold text-charcoal">Starting price</p>
+              <div className="mt-3 grid gap-2 text-sm text-charcoal-soft">
+                {startingPrice.lineItems.map((item) => (
+                  <div className="flex justify-between gap-3" key={item.label}>
+                    <span>{item.label}</span>
+                    <span className="font-semibold text-charcoal">{formatMoney(item.amount)}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 flex justify-between gap-3 border-t border-[rgb(199_163_95_/_0.25)] pt-3 text-sm font-bold text-charcoal">
+                <span>Total from</span>
+                <span>{formatMoney(startingPrice.total)}</span>
+              </p>
+              <p className="mt-2 text-xs leading-5 text-charcoal-soft">
+                Final total updates after quantity, options, and delivery city are submitted.
+              </p>
             </div>
 
             <fieldset className="grid gap-3 rounded-[8px] border border-[rgb(199_163_95_/_0.28)] p-4">
@@ -204,9 +291,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
               Chosen template
             </p>
             <h2 className="mt-2 text-xl font-semibold">{template.name}</h2>
-            <p className="mt-2 text-sm text-charcoal-soft">
-              {formatSheetSizeCm(template.sheetSize, template.orientation)}
-            </p>
+            <p className="mt-2 text-sm text-charcoal-soft">{formatTemplateSize(template)}</p>
           </div>
           <div className="rounded-[8px] bg-[rgb(45_41_38_/_0.06)] p-3 shadow-soft">
             <MontagePreview
@@ -222,6 +307,22 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
         </aside>
       </div>
     </section>
+  );
+}
+
+function ChecklistItem({ done, label }: { done: boolean; label: string }) {
+  return (
+    <li className="flex items-center gap-2">
+      <span
+        aria-hidden="true"
+        className={`grid size-5 place-items-center rounded-full text-xs font-bold ${
+          done ? "bg-[rgb(34_128_91_/_0.14)] text-[rgb(25_96_68)]" : "bg-rose-soft text-charcoal"
+        }`}
+      >
+        {done ? "OK" : "!"}
+      </span>
+      <span>{label}</span>
+    </li>
   );
 }
 

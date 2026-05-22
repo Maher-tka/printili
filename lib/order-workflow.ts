@@ -126,6 +126,26 @@ export function getOrderStatusActions(status: OrderStatusId) {
   return orderStatusActions[status];
 }
 
+export function canTransitionOrderStatus({
+  from,
+  to,
+  allowOverride = false
+}: {
+  from: OrderStatusId;
+  to: OrderStatusId;
+  allowOverride?: boolean;
+}) {
+  if (from === to || allowOverride) {
+    return true;
+  }
+
+  return getOrderStatusActions(from).some((action) => action.status === to);
+}
+
+export function getInvalidTransitionMessage(from: OrderStatusId, to: OrderStatusId) {
+  return `Cannot move order from ${orderStatusLabels[from]} to ${orderStatusLabels[to]} without admin override.`;
+}
+
 export function isOrderStatusAtLeast(status: OrderStatusId, minimumStatus: OrderStatusId) {
   const statusIndex = orderStatuses.indexOf(status);
   const minimumIndex = orderStatuses.indexOf(minimumStatus);

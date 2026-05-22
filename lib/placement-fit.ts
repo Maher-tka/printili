@@ -7,15 +7,15 @@ import type { TemplateSlotSeed } from "@/types/templates";
 
 export type PlacementControls = Pick<
   ProjectPlacementSummary,
-  "zoom" | "offsetX" | "offsetY" | "rotation"
+  "zoom" | "offsetX" | "offsetY" | "rotation" | "focusX" | "focusY" | "blurBackground"
 >;
 
 const minZoom = 1;
 const maxZoom = 2.8;
 const minOffset = -80;
 const maxOffset = 80;
-const minRotation = -45;
-const maxRotation = 45;
+const minRotation = -90;
+const maxRotation = 90;
 
 export function getEffectivePlacementControls({
   placement,
@@ -44,7 +44,10 @@ export function getEffectivePlacementControls({
     zoom: roundControl(clamp(baseControls.zoom * suggestion.zoom, minZoom, maxZoom)),
     offsetX: roundControl(clamp(baseControls.offsetX + suggestion.offsetX, minOffset, maxOffset)),
     offsetY: roundControl(clamp(baseControls.offsetY + suggestion.offsetY, minOffset, maxOffset)),
-    rotation: baseControls.rotation
+    rotation: baseControls.rotation,
+    focusX: baseControls.focusX,
+    focusY: baseControls.focusY,
+    blurBackground: baseControls.blurBackground
   };
 }
 
@@ -87,7 +90,10 @@ export function getSmartCropSuggestion({
       zoom: roundControl(zoom),
       offsetX: 0,
       offsetY: roundControl((roleBias + orientationBias) * cropPressure),
-      rotation: 0
+      rotation: 0,
+      focusX: 50,
+      focusY: 50,
+      blurBackground: false
     };
   }
 
@@ -96,7 +102,10 @@ export function getSmartCropSuggestion({
       zoom: roundControl(zoom),
       offsetX: 0,
       offsetY: 0,
-      rotation: 0
+      rotation: 0,
+      focusX: 50,
+      focusY: 50,
+      blurBackground: false
     };
   }
 
@@ -104,7 +113,10 @@ export function getSmartCropSuggestion({
     zoom: roundControl(zoom),
     offsetX: 0,
     offsetY: 0,
-    rotation: 0
+    rotation: 0,
+    focusX: 50,
+    focusY: 50,
+    blurBackground: false
   };
 }
 
@@ -116,6 +128,10 @@ export function normalizeEditableFitModeForSlot(
     return slot?.allowBlurFill === false ? "cover" : "contain_blur";
   }
 
+  if (fitMode === "contain") {
+    return "contain";
+  }
+
   if (fitMode === "smart_crop") {
     return slot?.allowSmartCrop === false ? "cover" : "smart_crop";
   }
@@ -123,12 +139,22 @@ export function normalizeEditableFitModeForSlot(
   return "cover";
 }
 
+export function getPlacementObjectPosition(placement: PlacementControls) {
+  const x = roundControl(clamp(placement.focusX - placement.offsetX, 0, 100));
+  const y = roundControl(clamp(placement.focusY - placement.offsetY, 0, 100));
+
+  return `${x}% ${y}%`;
+}
+
 function normalizePlacementControls(placement: PlacementControls): PlacementControls {
   return {
     zoom: roundControl(clamp(placement.zoom, minZoom, maxZoom)),
     offsetX: roundControl(clamp(placement.offsetX, minOffset, maxOffset)),
     offsetY: roundControl(clamp(placement.offsetY, minOffset, maxOffset)),
-    rotation: roundControl(clamp(placement.rotation, minRotation, maxRotation))
+    rotation: roundControl(clamp(placement.rotation, minRotation, maxRotation)),
+    focusX: roundControl(clamp(placement.focusX, 0, 100)),
+    focusY: roundControl(clamp(placement.focusY, 0, 100)),
+    blurBackground: placement.blurBackground
   };
 }
 
@@ -137,7 +163,10 @@ function getNeutralControls(): PlacementControls {
     zoom: 1,
     offsetX: 0,
     offsetY: 0,
-    rotation: 0
+    rotation: 0,
+    focusX: 50,
+    focusY: 50,
+    blurBackground: false
   };
 }
 

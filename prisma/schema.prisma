@@ -8,13 +8,14 @@ datasource db {
 }
 
 enum TemplateCategory {
-  BABY      @map("baby")
-  COUPLE    @map("couple")
-  BIRTHDAY  @map("birthday")
-  FAMILY    @map("family")
-  WEDDING   @map("wedding")
-  CUT_SHEET @map("cut_sheet")
-  CUSTOM    @map("custom")
+  BABY       @map("baby")
+  COUPLE     @map("couple")
+  BIRTHDAY   @map("birthday")
+  FAMILY     @map("family")
+  WEDDING    @map("wedding")
+  CUT_SHEET  @map("cut_sheet")
+  GRADUATION @map("graduation")
+  CUSTOM     @map("custom")
 }
 
 enum ProductType {
@@ -22,6 +23,8 @@ enum ProductType {
   CUT_SHEET         @map("cut_sheet")
   FRAMED_GIFT       @map("framed_gift")
   DIGITAL_PRINTABLE @map("digital_printable")
+  LABEL             @map("label")
+  STICKER           @map("sticker")
 }
 
 enum SheetSize {
@@ -73,6 +76,7 @@ enum ProjectStatus {
 
 enum FitMode {
   COVER            @map("cover")
+  CONTAIN          @map("contain")
   CONTAIN_BLUR     @map("contain_blur")
   SMART_CROP       @map("smart_crop")
   FACE_PRIORITY    @map("face_priority")
@@ -84,9 +88,9 @@ enum PaymentMethod {
 }
 
 enum SampleUseConsent {
-  PRIVATE      @map("private")
-  BLUR_FACES   @map("blur_faces")
-  SHOW_PUBLIC  @map("show_public")
+  PRIVATE     @map("private")
+  BLUR_FACES  @map("blur_faces")
+  SHOW_PUBLIC @map("show_public")
 }
 
 enum OrderStatus {
@@ -110,6 +114,9 @@ model Template {
   productType             ProductType
   sheetSize               SheetSize
   orientation             TemplateOrientation
+  widthMm                 Decimal?            @db.Decimal(7, 2)
+  heightMm                Decimal?            @db.Decimal(7, 2)
+  productKind             String?
   minPhotos               Int
   maxPhotos               Int
   preferredPortraitCount  Int                 @default(0)
@@ -180,29 +187,29 @@ model TemplateTextField {
 }
 
 model Project {
-  id               String             @id @default(cuid())
-  guestToken       String             @unique
-  projectCode      String             @unique
-  category         TemplateCategory   @default(CUSTOM)
-  chosenTemplateId String?
-  sheetSize        SheetSize          @default(A4)
-  status           ProjectStatus      @default(DRAFT)
-  clientName       String?
-  whatsapp         String?
-  deliveryAddress  String?
-  city             String?
-  notes            String?
-  designApproved   Boolean            @default(false)
-  clientApprovedPreview Boolean        @default(false)
-  expiresAt        DateTime
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  chosenTemplate   Template?          @relation(fields: [chosenTemplateId], references: [id], onDelete: SetNull)
-  photos           ProjectPhoto[]
-  placements       ProjectPlacement[]
-  textValues       ProjectTextValue[]
-  order            Order?
-  adminNotes       AdminNote[]
+  id                    String             @id @default(cuid())
+  guestToken            String             @unique
+  projectCode           String             @unique
+  category              TemplateCategory   @default(CUSTOM)
+  chosenTemplateId      String?
+  sheetSize             SheetSize          @default(A4)
+  status                ProjectStatus      @default(DRAFT)
+  clientName            String?
+  whatsapp              String?
+  deliveryAddress       String?
+  city                  String?
+  notes                 String?
+  designApproved        Boolean            @default(false)
+  clientApprovedPreview Boolean            @default(false)
+  expiresAt             DateTime
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  chosenTemplate        Template?          @relation(fields: [chosenTemplateId], references: [id], onDelete: SetNull)
+  photos                ProjectPhoto[]
+  placements            ProjectPlacement[]
+  textValues            ProjectTextValue[]
+  order                 Order?
+  adminNotes            AdminNote[]
 
   @@index([guestToken])
   @@index([projectCode])
@@ -243,6 +250,9 @@ model ProjectPlacement {
   offsetX   Decimal      @default(0) @db.Decimal(7, 4)
   offsetY   Decimal      @default(0) @db.Decimal(7, 4)
   rotation  Decimal      @default(0) @db.Decimal(6, 2)
+  focusX    Decimal      @default(50) @db.Decimal(6, 3)
+  focusY    Decimal      @default(50) @db.Decimal(6, 3)
+  blurBackground Boolean @default(false)
   fitMode   FitMode      @default(COVER)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
@@ -269,33 +279,33 @@ model ProjectTextValue {
 }
 
 model Order {
-  id              String               @id @default(cuid())
-  orderNumber     String               @unique
-  projectId       String               @unique
-  clientName      String
-  whatsapp        String
-  deliveryAddress String
-  city            String
-  deliveryNotes   String?
-  quantity        Int                  @default(1)
-  productOption   String               @default("print_only")
-  addFrame        Boolean              @default(false)
-  giftWrap        Boolean              @default(false)
-  premiumPaper    Boolean              @default(false)
-  finish          String               @default("matte")
-  urgentOrder     Boolean              @default(false)
-  sampleUseConsent SampleUseConsent    @default(PRIVATE)
-  paymentMethod   PaymentMethod        @default(CASH_ON_DELIVERY)
-  status          OrderStatus          @default(NEW_ORDER)
-  totalPrice      Decimal?             @db.Decimal(10, 2)
-  deliveryFee     Decimal?             @db.Decimal(10, 2)
-  previewFilePath String?
-  printFilePath   String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  project         Project              @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  statusHistory   OrderStatusHistory[]
-  adminNotes      AdminNote[]
+  id               String               @id @default(cuid())
+  orderNumber      String               @unique
+  projectId        String               @unique
+  clientName       String
+  whatsapp         String
+  deliveryAddress  String
+  city             String
+  deliveryNotes    String?
+  quantity         Int                  @default(1)
+  productOption    String               @default("print_only")
+  addFrame         Boolean              @default(false)
+  giftWrap         Boolean              @default(false)
+  premiumPaper     Boolean              @default(false)
+  finish           String               @default("matte")
+  urgentOrder      Boolean              @default(false)
+  sampleUseConsent SampleUseConsent     @default(PRIVATE)
+  paymentMethod    PaymentMethod        @default(CASH_ON_DELIVERY)
+  status           OrderStatus          @default(NEW_ORDER)
+  totalPrice       Decimal?             @db.Decimal(10, 2)
+  deliveryFee      Decimal?             @db.Decimal(10, 2)
+  previewFilePath  String?
+  printFilePath    String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  project          Project              @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  statusHistory    OrderStatusHistory[]
+  adminNotes       AdminNote[]
 
   @@index([status, createdAt])
   @@map("orders")

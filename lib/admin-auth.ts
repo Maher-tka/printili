@@ -22,11 +22,11 @@ export function getAdminCookieName() {
   return adminCookieName;
 }
 
-export function getAdminCookieOptions() {
+export function getAdminCookieOptions(env: { NODE_ENV?: string } = process.env) {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: isProductionRuntime(),
+    secure: isProductionRuntime(env),
     path: "/",
     maxAge: adminSessionDurationSeconds
   };

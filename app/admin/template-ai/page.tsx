@@ -24,6 +24,7 @@ const categories = [
   ["family", "Family"],
   ["wedding", "Wedding"],
   ["cut_sheet", "Cut Sheet"],
+  ["graduation", "Graduation"],
   ["custom", "Custom Gift"]
 ];
 

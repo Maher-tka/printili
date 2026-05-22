@@ -28,11 +28,22 @@ export async function POST(request: Request, { params }: StatusRouteProps) {
   }
 
   const note = formData.get("note");
-  const updatedOrder = await updateOrderStatus({
-    orderId,
-    status,
-    note: typeof note === "string" && note.trim() ? note.trim() : undefined
-  });
+  const allowOverride = formData.get("allowOverride") === "true";
+  let updatedOrder;
+
+  try {
+    updatedOrder = await updateOrderStatus({
+      orderId,
+      status,
+      note: typeof note === "string" && note.trim() ? note.trim() : undefined,
+      allowOverride
+    });
+  } catch {
+    return NextResponse.redirect(
+      new URL(`/admin/orders/${orderId}?status=blocked`, request.url),
+      303
+    );
+  }
 
   if (!updatedOrder) {
     return NextResponse.redirect(new URL("/admin?order=missing", request.url), 303);

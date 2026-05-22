@@ -2,9 +2,16 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import { useRef } from "react";
 import { cn } from "@/lib/cn";
-import { getEffectivePlacementControls } from "@/lib/placement-fit";
+import { getEffectivePlacementControls, getPlacementObjectPosition } from "@/lib/placement-fit";
 import { getPhotoSource } from "@/lib/photo-url";
+import {
+  getEditableTextStyle,
+  getPolaroidCaptionStyleScope,
+  getPolaroidCaptionTextKey,
+  type EditableTextStyle
+} from "@/lib/text-style-options";
 import type {
   EditableFitMode,
   ProjectPlacementSummary,
@@ -29,10 +36,14 @@ type MontagePreviewProps = {
   watermarkText?: string;
   className?: string;
   showSlotLabels?: boolean;
+  onSlotDrag?: (slotId: string, deltaX: number, deltaY: number) => void;
+  onSlotDragEnd?: () => void;
   onSlotSelect?: (slotId: string) => void;
 };
 
-type VisualFitMode = "cover" | "contain_blur" | "smart_crop";
+type VisualFitMode = "cover" | "contain" | "contain_blur" | "smart_crop";
+
+const polaroidPhotoWindowClassName = "absolute left-[6%] top-[6%] h-[76%] w-[88%]";
 
 export function MontagePreview({
   template,
@@ -46,13 +57,15 @@ export function MontagePreview({
   watermarkText = "PREVIEW",
   className,
   showSlotLabels = false,
+  onSlotDrag,
+  onSlotDragEnd,
   onSlotSelect
 }: MontagePreviewProps) {
   const photoById = createPhotoMap(photos);
   const aspectRatio = template.orientation === "landscape" ? "297 / 210" : "210 / 297";
-  const renderedSlots = layout.slots.map((slot, index) => ({
+  const renderedSlots = layout.slots.map((slot) => ({
     slot,
-    placement: placements.find((placement) => placement.slotId === slot.id) ?? placements[index]
+    placement: placements.find((placement) => placement.slotId === slot.id)
   }));
 
   return (
@@ -76,7 +89,10 @@ export function MontagePreview({
           slotNumber={index + 1}
           showSlotLabels={showSlotLabels}
           templateSlug={template.slug}
+          textValues={textValues}
           templateName={template.name}
+          onDrag={onSlotDrag}
+          onDragEnd={onSlotDragEnd}
           onSelect={onSlotSelect ? () => onSlotSelect(slot.id) : undefined}
         />
       ))}
@@ -84,6 +100,7 @@ export function MontagePreview({
         <PreviewText
           key={field.id}
           field={field}
+          textValues={textValues}
           value={textValues[field.key] ?? field.defaultValue ?? field.placeholder ?? ""}
         />
       ))}
@@ -99,10 +116,13 @@ function PhotoSlot({
   photo,
   templateName,
   templateSlug,
+  textValues,
   slotNumber,
   showSlotLabels,
   isSelected,
-  onSelect
+  onSelect,
+  onDrag,
+  onDragEnd
 }: {
   slot: TemplateSlotSeed;
   placement?: ProjectPlacementSummary;
@@ -110,12 +130,18 @@ function PhotoSlot({
   photo?: UploadedProjectPhoto;
   templateName: string;
   templateSlug: string;
+  textValues: Record<string, string>;
   slotNumber: number;
   showSlotLabels: boolean;
   isSelected: boolean;
   onSelect?: () => void;
+  onDrag?: (slotId: string, deltaX: number, deltaY: number) => void;
+  onDragEnd?: () => void;
 }) {
-  const photoSource = photo ? getPhotoSource(photo.originalUrl, { lowRes }) : "";
+  const dragRef = useRef<{ pointerId: number; x: number; y: number; moved: boolean } | null>(null);
+  const photoSource = photo
+    ? getPhotoSource(photo.originalUrl, { preview: lowRes ? "low" : "editor" })
+    : "";
   const fitMode = placement?.fitMode ?? "cover";
   const visualFitMode = getVisualFitMode(fitMode);
   const isCircle = slot.shape === "circle";
@@ -170,10 +196,60 @@ function PhotoSlot({
         className={slotClassName}
         data-slot-shape={slot.shape}
         onClick={onSelect}
+        onPointerCancel={() => {
+          dragRef.current = null;
+          onDragEnd?.();
+        }}
+        onPointerDown={(event) => {
+          if (!photo || !placement || event.button !== 0) {
+            return;
+          }
+
+          event.currentTarget.setPointerCapture(event.pointerId);
+          dragRef.current = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            moved: false
+          };
+        }}
+        onPointerMove={(event) => {
+          const drag = dragRef.current;
+
+          if (!drag || drag.pointerId !== event.pointerId || !onDrag) {
+            return;
+          }
+
+          const rect = event.currentTarget.getBoundingClientRect();
+          const deltaX = ((event.clientX - drag.x) / Math.max(1, rect.width)) * 100;
+          const deltaY = ((event.clientY - drag.y) / Math.max(1, rect.height)) * 100;
+
+          if (Math.abs(deltaX) < 0.15 && Math.abs(deltaY) < 0.15) {
+            return;
+          }
+
+          event.preventDefault();
+          dragRef.current = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            moved: true
+          };
+          onDrag(slot.id, deltaX, deltaY);
+        }}
+        onPointerUp={(event) => {
+          if (dragRef.current?.pointerId === event.pointerId) {
+            dragRef.current = null;
+            onDragEnd?.();
+          }
+        }}
         style={slotStyle}
         type="button"
       >
         {content}
+        {isPolaroidCell ? (
+          <PolaroidCaption slot={slot} slotNumber={slotNumber} textValues={textValues} />
+        ) : null}
         {slotBadge}
       </button>
     );
@@ -188,6 +264,9 @@ function PhotoSlot({
       style={slotStyle}
     >
       {content}
+      {isPolaroidCell ? (
+        <PolaroidCaption slot={slot} slotNumber={slotNumber} textValues={textValues} />
+      ) : null}
       {slotBadge}
     </div>
   );
@@ -212,37 +291,136 @@ function PlacedPhoto({
   slot: TemplateSlotSeed;
   templateName: string;
 }) {
-  if (fitMode === "contain_blur") {
+  if (isPolaroidCell) {
     return (
-      <div
-        className={cn(
-          "absolute inset-0 overflow-hidden",
-          isPolaroidCell && "bg-white p-[6%] pb-[18%]"
-        )}
-      >
-        <img
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full scale-125 object-cover opacity-75 blur-xl brightness-75 saturate-90"
-          src={photoSource}
+      <div className="absolute inset-0 overflow-hidden bg-white">
+        <PolaroidPhotoWindow
+          fitMode={fitMode}
+          photo={photo}
+          photoFileName={photoFileName}
+          photoSource={photoSource}
+          placement={placement}
+          slot={slot}
+          templateName={templateName}
         />
-        <div aria-hidden="true" className="absolute inset-0 bg-charcoal/10" />
+      </div>
+    );
+  }
+
+  if (fitMode === "contain" || fitMode === "contain_blur" || placement.blurBackground) {
+    const controls = getEffectivePlacementControls({
+      placement: {
+        ...placement,
+        fitMode
+      },
+      photo,
+      slot
+    });
+
+    return (
+      <div className="absolute inset-0 overflow-hidden">
+        {fitMode === "contain_blur" || placement.blurBackground ? (
+          <>
+            <img
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full scale-125 object-cover opacity-75 blur-xl brightness-75 saturate-90"
+              src={photoSource}
+            />
+            <div aria-hidden="true" className="absolute inset-0 bg-charcoal/10" />
+          </>
+        ) : null}
         <img
           alt={`${photoFileName} placed in ${templateName}`}
-          className={cn(
-            "absolute left-1/2 top-1/2 max-w-none object-contain drop-shadow-[0_10px_20px_rgb(45_41_38_/_0.16)]",
-            isPolaroidCell ? "h-[76%] w-[88%]" : "h-full w-full"
-          )}
+          className="absolute left-1/2 top-1/2 h-full w-full max-w-none object-contain drop-shadow-[0_10px_20px_rgb(45_41_38_/_0.16)]"
           src={photoSource}
           style={{
-            transform: "translate(-50%, -50%)"
+            objectPosition: getPlacementObjectPosition(controls),
+            transform: `translate(-50%, -50%) translate(${controls.offsetX}%, ${controls.offsetY}%) scale(${controls.zoom}) rotate(${controls.rotation}deg)`
           }}
         />
       </div>
     );
   }
 
-  const targetAspectRatio = isPolaroidCell ? (slot.width * 0.88) / (slot.height * 0.76) : undefined;
+  const controls = getEffectivePlacementControls({
+    placement: {
+      ...placement,
+      fitMode
+    },
+    photo,
+    slot
+  });
+
+  return (
+    <div className="absolute inset-0 overflow-hidden">
+      <img
+        alt={`${photoFileName} placed in ${templateName}`}
+        className="absolute left-1/2 top-1/2 h-full w-full max-w-none object-cover"
+        src={photoSource}
+        style={{
+          objectPosition: getPlacementObjectPosition(controls),
+          transform: `translate(-50%, -50%) scale(${controls.zoom}) rotate(${controls.rotation}deg)`
+        }}
+      />
+    </div>
+  );
+}
+
+function PolaroidPhotoWindow({
+  fitMode,
+  photo,
+  photoFileName,
+  photoSource,
+  placement,
+  slot,
+  templateName
+}: {
+  fitMode: VisualFitMode;
+  photo: UploadedProjectPhoto;
+  photoFileName: string;
+  photoSource: string;
+  placement: ProjectPlacementSummary;
+  slot: TemplateSlotSeed;
+  templateName: string;
+}) {
+  if (fitMode === "contain" || fitMode === "contain_blur" || placement.blurBackground) {
+    const controls = getEffectivePlacementControls({
+      placement: {
+        ...placement,
+        fitMode
+      },
+      photo,
+      slot,
+      targetAspectRatio: (slot.width * 0.88) / (slot.height * 0.76)
+    });
+
+    return (
+      <div className={cn(polaroidPhotoWindowClassName, "overflow-hidden bg-cream-strong")}>
+        {fitMode === "contain_blur" || placement.blurBackground ? (
+          <>
+            <img
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full scale-125 object-cover opacity-75 blur-xl brightness-75 saturate-90"
+              src={photoSource}
+            />
+            <div aria-hidden="true" className="absolute inset-0 bg-charcoal/10" />
+          </>
+        ) : null}
+        <img
+          alt={`${photoFileName} placed in ${templateName}`}
+          className="absolute left-1/2 top-1/2 h-full w-full max-w-none object-contain drop-shadow-[0_10px_20px_rgb(45_41_38_/_0.16)]"
+          src={photoSource}
+          style={{
+            objectPosition: getPlacementObjectPosition(controls),
+            transform: `translate(-50%, -50%) translate(${controls.offsetX}%, ${controls.offsetY}%) scale(${controls.zoom}) rotate(${controls.rotation}deg)`
+          }}
+        />
+      </div>
+    );
+  }
+
   const controls = getEffectivePlacementControls({
     placement: {
       ...placement,
@@ -250,25 +428,18 @@ function PlacedPhoto({
     },
     photo,
     slot,
-    targetAspectRatio
+    targetAspectRatio: (slot.width * 0.88) / (slot.height * 0.76)
   });
 
   return (
-    <div
-      className={cn(
-        "absolute inset-0 overflow-hidden",
-        isPolaroidCell && "bg-white p-[6%] pb-[18%]"
-      )}
-    >
+    <div className={cn(polaroidPhotoWindowClassName, "overflow-hidden bg-cream-strong")}>
       <img
         alt={`${photoFileName} placed in ${templateName}`}
-        className={cn(
-          "absolute left-1/2 top-1/2 max-w-none object-cover",
-          isPolaroidCell ? "h-[76%] w-[88%]" : "h-full w-full"
-        )}
+        className="absolute left-1/2 top-1/2 h-full w-full max-w-none object-cover"
         src={photoSource}
         style={{
-          transform: `translate(-50%, -50%) translate(${controls.offsetX}%, ${controls.offsetY}%) scale(${controls.zoom}) rotate(${controls.rotation}deg)`
+          objectPosition: getPlacementObjectPosition(controls),
+          transform: `translate(-50%, -50%) scale(${controls.zoom}) rotate(${controls.rotation}deg)`
         }}
       />
     </div>
@@ -276,6 +447,10 @@ function PlacedPhoto({
 }
 
 function getVisualFitMode(fitMode: EditableFitMode): VisualFitMode {
+  if (fitMode === "contain") {
+    return "contain";
+  }
+
   if (fitMode === "contain_blur") {
     return "contain_blur";
   }
@@ -287,16 +462,62 @@ function getVisualFitMode(fitMode: EditableFitMode): VisualFitMode {
   return "cover";
 }
 
-function PreviewText({ field, value }: { field: TemplateTextFieldSeed; value: string }) {
+function PolaroidCaption({
+  slot,
+  slotNumber,
+  textValues
+}: {
+  slot: TemplateSlotSeed;
+  slotNumber: number;
+  textValues: Record<string, string>;
+}) {
+  const value = textValues[getPolaroidCaptionTextKey(slot.id)] ?? "";
+
+  if (!value.trim()) {
+    return null;
+  }
+
+  const style = getEditableTextStyle({
+    defaultFontSize: 18,
+    scope: getPolaroidCaptionStyleScope(slot.id),
+    textValues
+  });
+
   return (
     <div
-      className="pointer-events-none absolute flex items-center justify-center overflow-hidden px-1 text-center font-display leading-tight text-charcoal"
+      aria-label={`Caption for photo slot ${slotNumber}`}
+      className="pointer-events-none absolute bottom-[2.5%] left-[6%] z-20 flex h-[14%] w-[88%] items-center overflow-hidden px-1 leading-none"
+      style={getPreviewTextStyle(style)}
+    >
+      {value}
+    </div>
+  );
+}
+
+function PreviewText({
+  field,
+  textValues,
+  value
+}: {
+  field: TemplateTextFieldSeed;
+  textValues: Record<string, string>;
+  value: string;
+}) {
+  const style = getEditableTextStyle({
+    defaultFontSize: field.fontSize,
+    scope: field.key,
+    textValues
+  });
+
+  return (
+    <div
+      className="pointer-events-none absolute flex items-center overflow-hidden px-1 leading-tight"
       style={{
         left: `${field.x * 100}%`,
         top: `${field.y * 100}%`,
         width: `${field.width * 100}%`,
         height: `${field.height * 100}%`,
-        fontSize: `${Math.max(9, field.fontSize * 0.38)}px`,
+        ...getPreviewTextStyle(style, Math.max(9, style.fontSize * 0.38)),
         zIndex: field.zIndex,
         whiteSpace: field.height > 0.07 ? "pre-wrap" : "nowrap"
       }}
@@ -304,6 +525,19 @@ function PreviewText({ field, value }: { field: TemplateTextFieldSeed; value: st
       {value}
     </div>
   );
+}
+
+function getPreviewTextStyle(style: EditableTextStyle, fontSize = style.fontSize) {
+  return {
+    color: style.color,
+    fontFamily: style.fontStack,
+    fontSize: `${fontSize}px`,
+    fontStyle: style.isItalic ? "italic" : "normal",
+    fontWeight: style.isBold ? 700 : 400,
+    justifyContent:
+      style.align === "left" ? "flex-start" : style.align === "right" ? "flex-end" : "center",
+    textAlign: style.align
+  };
 }
 
 function CutGuideOverlay({ templateSlug }: { templateSlug: string }) {

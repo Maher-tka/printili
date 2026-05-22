@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
+import { handwritingFontStylesheetHref } from "@/lib/text-style-options";
 import "./globals.css";
 
 const inter = Inter({
@@ -46,6 +47,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href={handwritingFontStylesheetHref} />
+      </head>
       <body className={`${inter.variable} ${playfairDisplay.variable}`}>
         <a
           href="#main-content"

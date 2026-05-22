@@ -135,8 +135,134 @@ const birthdayNumberSlug = "birthday-number-collage";
 const familyMemorySlug = "family-memory-poster";
 const weddingWelcomeSlug = "wedding-welcome-poster";
 const parentGiftSlug = "mother-father-gift-poster";
+const graduationBottleLabelSlug = "graduation-water-bottle-label";
+const graduationRoundStickerSlug = "graduation-round-juice-sticker";
 
 export const templateLayouts: Record<string, TemplateEditorLayout> = {
+  [graduationBottleLabelSlug]: layout(
+    graduationBottleLabelSlug,
+    [
+      {
+        x: 0.035,
+        y: 0.12,
+        width: 0.18,
+        height: 0.76,
+        shape: "rect",
+        role: "hero",
+        preferredOrientation: "portrait",
+        zIndex: 1,
+        borderRadius: 0.12
+      }
+    ],
+    [
+      {
+        key: "graduate_name",
+        label: "Graduate name",
+        placeholder: "Mariam",
+        x: 0.25,
+        y: 0.16,
+        width: 0.42,
+        height: 0.24,
+        fontSize: 20,
+        maxLength: 42,
+        isRequired: true,
+        zIndex: 20
+      },
+      {
+        key: "school_name",
+        label: "School name",
+        placeholder: "Printili School",
+        x: 0.25,
+        y: 0.42,
+        width: 0.42,
+        height: 0.16,
+        fontSize: 11,
+        maxLength: 44,
+        zIndex: 21
+      },
+      {
+        key: "graduation_year",
+        label: "Graduation year",
+        placeholder: "2026",
+        x: 0.7,
+        y: 0.16,
+        width: 0.22,
+        height: 0.26,
+        fontSize: 18,
+        maxLength: 8,
+        isRequired: true,
+        zIndex: 22
+      },
+      {
+        key: "short_message",
+        label: "Short message",
+        placeholder: "Congratulations!",
+        x: 0.25,
+        y: 0.62,
+        width: 0.62,
+        height: 0.18,
+        fontSize: 10,
+        maxLength: 72,
+        zIndex: 23
+      }
+    ]
+  ),
+  [graduationRoundStickerSlug]: layout(
+    graduationRoundStickerSlug,
+    [
+      {
+        x: 0.28,
+        y: 0.17,
+        width: 0.44,
+        height: 0.44,
+        shape: "circle",
+        role: "hero",
+        preferredOrientation: "portrait",
+        zIndex: 1,
+        borderRadius: 0.5
+      }
+    ],
+    [
+      {
+        key: "graduate_name",
+        label: "Graduate name",
+        placeholder: "Mariam",
+        x: 0.14,
+        y: 0.64,
+        width: 0.72,
+        height: 0.12,
+        fontSize: 15,
+        maxLength: 30,
+        isRequired: true,
+        zIndex: 20
+      },
+      {
+        key: "graduation_year",
+        label: "Graduation year",
+        placeholder: "2026",
+        x: 0.26,
+        y: 0.78,
+        width: 0.48,
+        height: 0.1,
+        fontSize: 12,
+        maxLength: 8,
+        isRequired: true,
+        zIndex: 21
+      },
+      {
+        key: "short_message",
+        label: "Short message",
+        placeholder: "Congrats!",
+        x: 0.18,
+        y: 0.08,
+        width: 0.64,
+        height: 0.08,
+        fontSize: 9,
+        maxLength: 36,
+        zIndex: 22
+      }
+    ]
+  ),
   [a4PolaroidSlug]: layout(
     a4PolaroidSlug,
     gridSlots({

@@ -7,6 +7,22 @@ import { MontagePreview } from "@/components/montage-preview";
 import { cn } from "@/lib/cn";
 import { normalizeEditableFitModeForSlot } from "@/lib/placement-fit";
 import { getPhotoSource } from "@/lib/photo-url";
+import {
+  calculateSmartPhotoPlacement,
+  detectFaceFocusFromImageUrl,
+  isNeutralPlacement,
+  shouldRepairUnsafePolaroidRotation
+} from "@/lib/smart-photo-fit";
+import {
+  POLAROID_TEMPLATE_SLUG,
+  getEditableTextStyle,
+  getPolaroidCaptionStyleScope,
+  getPolaroidCaptionTextKey,
+  getTextStyleValueKey,
+  handwritingFontOptions,
+  textColorOptions,
+  type TextStyleProperty
+} from "@/lib/text-style-options";
 import type {
   GuestProjectSummary,
   ImplementedFitMode,
@@ -24,25 +40,35 @@ type CustomerEditorProps = {
 
 type SaveState = "saved" | "saving" | "error";
 
+type EditorHistorySnapshot = {
+  placements: ProjectPlacementSummary[];
+  textValues: Record<string, string>;
+};
+
 const fitModeOptions: Array<{
   value: ImplementedFitMode;
   label: string;
   description: string;
 }> = [
   {
+    value: "smart_crop",
+    label: "Smart",
+    description: "Auto-rotate, protect faces when possible, and pick the cleanest crop."
+  },
+  {
     value: "cover",
-    label: "Fill frame",
-    description: "Crop to the slot. Zoom, rotate, and nudge are available."
+    label: "Cover",
+    description: "Fill the frame with manual crop controls."
+  },
+  {
+    value: "contain",
+    label: "Contain",
+    description: "Show the full photo without a blurred background."
   },
   {
     value: "contain_blur",
-    label: "Fit whole photo",
-    description: "Show the full photo with soft blurred edges."
-  },
-  {
-    value: "smart_crop",
-    label: "Smart crop",
-    description: "Use photo and frame orientation to keep the likely subject better placed."
+    label: "Blur Fill",
+    description: "Show the full photo over a soft blurred copy."
   }
 ];
 
@@ -82,18 +108,22 @@ export function CustomerEditor({
   const [selectedSlotId, setSelectedSlotId] = useState(layout.slots[0]?.id ?? "");
   const [placementSaveState, setPlacementSaveState] = useState<SaveState>("saved");
   const [textSaveState, setTextSaveState] = useState<SaveState>("saved");
+  const [historyPast, setHistoryPast] = useState<EditorHistorySnapshot[]>([]);
+  const [historyFuture, setHistoryFuture] = useState<EditorHistorySnapshot[]>([]);
   const [showCutGuides, setShowCutGuides] = useState(template.hasCutGuides);
   const placementSaveVersionRef = useRef(0);
   const textSaveVersionRef = useRef(0);
+  const smartFitAppliedRef = useRef(new Set<string>());
+  const dragHistorySlotRef = useRef<string | null>(null);
   const savedPlacementPayloadsRef = useRef(
     new Map(initialPlacements.map((placement) => [placement.id, serializePlacement(placement)]))
   );
   const savedTextValuesRef = useRef(new Map(Object.entries(initialTextValues)));
   const renderedSlots = useMemo(
     () =>
-      layout.slots.map((slot, index) => ({
+      layout.slots.map((slot) => ({
         slot,
-        placement: placements.find((placement) => placement.slotId === slot.id) ?? placements[index]
+        placement: placements.find((placement) => placement.slotId === slot.id)
       })),
     [layout.slots, placements]
   );
@@ -109,6 +139,49 @@ export function CustomerEditor({
     (photo, index) => (photoUsageById.get(getCustomerPhotoId(photo, index))?.length ?? 0) === 0
   ).length;
   const combinedSaveState = placementSaveState === "saved" ? textSaveState : placementSaveState;
+  const canUndo = historyPast.length > 0;
+  const canRedo = historyFuture.length > 0;
+
+  function getEditorSnapshot(): EditorHistorySnapshot {
+    return {
+      placements: placements.map((placement) => ({ ...placement })),
+      textValues: { ...textValues }
+    };
+  }
+
+  function pushHistory() {
+    const snapshot = getEditorSnapshot();
+
+    setHistoryPast((currentHistory) => [...currentHistory.slice(-49), snapshot]);
+    setHistoryFuture([]);
+  }
+
+  function applyHistorySnapshot(snapshot: EditorHistorySnapshot) {
+    setPlacements(snapshot.placements.map((placement) => ({ ...placement })));
+    setTextValues({ ...snapshot.textValues });
+  }
+
+  function undoEditorChange() {
+    if (!historyPast.length) {
+      return;
+    }
+
+    const previousSnapshot = historyPast[historyPast.length - 1];
+    setHistoryFuture((currentHistory) => [getEditorSnapshot(), ...currentHistory].slice(0, 50));
+    setHistoryPast((currentHistory) => currentHistory.slice(0, -1));
+    applyHistorySnapshot(previousSnapshot);
+  }
+
+  function redoEditorChange() {
+    if (!historyFuture.length) {
+      return;
+    }
+
+    const nextSnapshot = historyFuture[0];
+    setHistoryPast((currentHistory) => [...currentHistory.slice(-49), getEditorSnapshot()]);
+    setHistoryFuture((currentHistory) => currentHistory.slice(1));
+    applyHistorySnapshot(nextSnapshot);
+  }
 
   useEffect(() => {
     const changedPlacements = placements
@@ -227,16 +300,273 @@ export function CustomerEditor({
     };
   }, [project.guestToken, textValues]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const photoMap = createCustomerPhotoMap(project.photos);
+    const smartFitCandidates = placements.filter((placement) => {
+      const slot = layout.slots.find((currentSlot) => currentSlot.id === placement.slotId);
+      const photo = photoMap.get(placement.photoId);
+      const key = getSmartFitKey(placement);
+
+      return Boolean(
+        slot &&
+          photo &&
+          (isNeutralPlacement(placement) ||
+            shouldRepairUnsafePolaroidRotation({
+              photo,
+              placement,
+              slot,
+              templateSlug: template.slug
+            })) &&
+          !smartFitAppliedRef.current.has(key)
+      );
+    });
+
+    if (smartFitCandidates.length === 0) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    smartFitCandidates.forEach((placement) => smartFitAppliedRef.current.add(getSmartFitKey(placement)));
+    setPlacements((currentPlacements) =>
+      currentPlacements.map((placement) => {
+        if (!smartFitCandidates.some((candidate) => candidate.id === placement.id)) {
+          return placement;
+        }
+
+        const slot = layout.slots.find((currentSlot) => currentSlot.id === placement.slotId);
+        const photo = photoMap.get(placement.photoId);
+
+        if (!slot || !photo) {
+          return placement;
+        }
+
+        return {
+          ...placement,
+          ...calculateSmartPhotoPlacement({
+            photo,
+            slot,
+            templateSlug: template.slug
+          })
+        };
+      })
+    );
+
+    smartFitCandidates.forEach((placement) => {
+      const slot = layout.slots.find((currentSlot) => currentSlot.id === placement.slotId);
+      const photo = photoMap.get(placement.photoId);
+
+      if (!slot || !photo) {
+        return;
+      }
+
+      void detectFaceFocusFromImageUrl(getPhotoSource(photo.originalUrl, { lowRes: false })).then(
+        (faceFocus) => {
+          if (!faceFocus || cancelled) {
+            return;
+          }
+
+          setPlacements((currentPlacements) =>
+            currentPlacements.map((currentPlacement) =>
+              currentPlacement.id === placement.id
+                ? {
+                    ...currentPlacement,
+                    ...calculateSmartPhotoPlacement({
+                      faceFocus,
+                      photo,
+                      slot,
+                      templateSlug: template.slug
+                    })
+                  }
+                : currentPlacement
+            )
+          );
+        }
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [layout.slots, placements, project.photos, template.slug]);
+
+  useEffect(() => {
+    function handleEditorShortcut(event: KeyboardEvent) {
+      if (isTypingTarget(event.target)) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const usesModifier = event.ctrlKey || event.metaKey;
+
+      if (usesModifier && key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          redoEditorChange();
+        } else {
+          undoEditorChange();
+        }
+        return;
+      }
+
+      if (usesModifier && key === "y") {
+        event.preventDefault();
+        redoEditorChange();
+        return;
+      }
+
+      if (!selectedPlacement) {
+        return;
+      }
+
+      const nudgeAmount = event.shiftKey ? 10 : 3;
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        nudgePlacement("offsetY", -nudgeAmount);
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        nudgePlacement("offsetY", nudgeAmount);
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        nudgePlacement("offsetX", -nudgeAmount);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        nudgePlacement("offsetX", nudgeAmount);
+      } else if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        updateSelectedPlacement({ zoom: clamp(selectedPlacement.zoom + 0.05, 1, 2.8) });
+      } else if (event.key === "-") {
+        event.preventDefault();
+        updateSelectedPlacement({ zoom: clamp(selectedPlacement.zoom - 0.05, 1, 2.8) });
+      } else if (key === "r") {
+        event.preventDefault();
+        updateSelectedPlacement({ rotation: clamp(selectedPlacement.rotation + 5, -90, 90) });
+      } else if (event.key === "0") {
+        event.preventDefault();
+        void resetSelectedSmartPosition();
+      } else if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        void clearSelectedSlotPhoto();
+      }
+    }
+
+    window.addEventListener("keydown", handleEditorShortcut);
+
+    return () => window.removeEventListener("keydown", handleEditorShortcut);
+  });
+
   function updateSelectedPlacement(patch: Partial<ProjectPlacementSummary>) {
     if (!selectedPlacement) {
       return;
     }
 
+    pushHistory();
     setPlacements((currentPlacements) =>
       currentPlacements.map((placement) =>
         placement.id === selectedPlacement.id ? { ...placement, ...patch } : placement
       )
     );
+  }
+
+  async function refinePlacementWithFaceFocus({
+    cancelled,
+    photo,
+    placementId,
+    slot
+  }: {
+    cancelled: () => boolean;
+    photo: GuestProjectSummary["photos"][number];
+    placementId: string;
+    slot: TemplateEditorLayout["slots"][number];
+  }) {
+    const faceFocus = await detectFaceFocusFromImageUrl(
+      getPhotoSource(photo.originalUrl, { lowRes: false })
+    );
+
+    if (!faceFocus || cancelled()) {
+      return;
+    }
+
+    setPlacements((currentPlacements) =>
+      currentPlacements.map((placement) => {
+        if (placement.id !== placementId) {
+          return placement;
+        }
+
+        return {
+          ...placement,
+          ...calculateSmartPhotoPlacement({
+            faceFocus,
+            photo,
+            slot,
+            templateSlug: template.slug
+          })
+        };
+      })
+    );
+  }
+
+  async function resetSelectedSmartPosition() {
+    if (!selectedPlacement || !selectedRenderedSlot) {
+      return;
+    }
+
+    const photo = findPhotoById(project.photos, selectedPlacement.photoId);
+
+    if (!photo) {
+      return;
+    }
+
+    pushHistory();
+    const basePlacement = calculateSmartPhotoPlacement({
+      photo,
+      slot: selectedRenderedSlot.slot,
+      templateSlug: template.slug
+    });
+    setPlacements((currentPlacements) =>
+      currentPlacements.map((placement) =>
+        placement.id === selectedPlacement.id ? { ...placement, ...basePlacement } : placement
+      )
+    );
+
+    await refinePlacementWithFaceFocus({
+      cancelled: () => false,
+      photo,
+      placementId: selectedPlacement.id,
+      slot: selectedRenderedSlot.slot
+    });
+  }
+
+  function dragPlacement(slotId: string, deltaX: number, deltaY: number) {
+    const placement = placements.find((currentPlacement) => currentPlacement.slotId === slotId);
+
+    if (!placement) {
+      return;
+    }
+
+    if (dragHistorySlotRef.current !== slotId) {
+      pushHistory();
+      dragHistorySlotRef.current = slotId;
+    }
+
+    setSelectedSlotId(slotId);
+    setPlacements((currentPlacements) =>
+      currentPlacements.map((currentPlacement) =>
+        currentPlacement.slotId === slotId
+          ? {
+              ...currentPlacement,
+              offsetX: clamp(currentPlacement.offsetX + deltaX, -80, 80),
+              offsetY: clamp(currentPlacement.offsetY + deltaY, -80, 80)
+            }
+          : currentPlacement
+      )
+    );
+  }
+
+  function endPlacementDrag() {
+    dragHistorySlotRef.current = null;
   }
 
   function nudgePlacement(axis: "offsetX" | "offsetY", amount: number) {
@@ -249,17 +579,26 @@ export function CustomerEditor({
     });
   }
 
-  function updateTextField(field: TemplateTextFieldSeed, value: string) {
-    const trimmedValue = field.maxLength ? value.slice(0, field.maxLength) : value;
+  function updateTextValue(fieldKey: string, value: string, maxLength = 500) {
+    const trimmedValue = value.slice(0, maxLength);
 
+    pushHistory();
     setTextValues((currentValues) => ({
       ...currentValues,
-      [field.key]: trimmedValue
+      [fieldKey]: trimmedValue
     }));
+  }
+
+  function updateTextField(field: TemplateTextFieldSeed, value: string) {
+    updateTextValue(field.key, value, field.maxLength ?? 500);
   }
 
   function insertEmoji(field: TemplateTextFieldSeed, emoji: string) {
     updateTextField(field, `${textValues[field.key] ?? ""}${emoji}`);
+  }
+
+  function updateTextStyle(scope: string, property: TextStyleProperty, value: string) {
+    updateTextValue(getTextStyleValueKey(scope, property), value, 120);
   }
 
   function changeFitMode(fitMode: ImplementedFitMode) {
@@ -273,47 +612,129 @@ export function CustomerEditor({
       return;
     }
 
-    if (fitMode === "contain_blur") {
-      updateSelectedPlacement({
-        fitMode,
-        zoom: 1,
-        offsetX: 0,
-        offsetY: 0,
-        rotation: 0
-      });
-      return;
-    }
-
     if (fitMode === "smart_crop") {
+      void resetSelectedSmartPosition();
+      return;
+    }
+
+    if (fitMode === "contain_blur" || fitMode === "contain") {
       updateSelectedPlacement({
         fitMode,
         zoom: 1,
         offsetX: 0,
         offsetY: 0,
-        rotation: 0
+        rotation: 0,
+        blurBackground: fitMode === "contain_blur"
       });
       return;
     }
 
-    updateSelectedPlacement({ fitMode });
+    updateSelectedPlacement({ fitMode, blurBackground: false });
   }
 
-  function changeSelectedPhoto(photoId: string) {
+  async function changeSelectedPhoto(photoId: string) {
     if (!selectedPlacement || selectedPlacement.photoId === photoId) {
       return;
     }
 
+    const selectedSlot = selectedRenderedSlot?.slot;
+    const photo = findPhotoById(project.photos, photoId);
+
+    if (!selectedSlot || !photo) {
+      return;
+    }
+
+    pushHistory();
+    const smartPlacement = calculateSmartPhotoPlacement({
+      photo,
+      slot: selectedSlot,
+      templateSlug: template.slug
+    });
+    setPlacements((currentPlacements) =>
+      currentPlacements.map((placement) =>
+        placement.id === selectedPlacement.id
+          ? {
+              ...placement,
+              photoId,
+              ...smartPlacement
+            }
+          : placement
+      )
+    );
+
+    await refinePlacementWithFaceFocus({
+      cancelled: () => false,
+      photo,
+      placementId: selectedPlacement.id,
+      slot: selectedSlot
+    });
+  }
+
+  function toggleBlurBackground(enabled: boolean) {
+    if (!selectedPlacement) {
+      return;
+    }
+
+    if (enabled) {
+      changeFitMode("contain_blur");
+      return;
+    }
+
+    if (selectedPlacement.fitMode === "contain_blur") {
+      changeFitMode("contain");
+      return;
+    }
+
     updateSelectedPlacement({
-      photoId,
+      blurBackground: false
+    });
+  }
+
+  function resetManualCrop() {
+    updateSelectedPlacement({
       zoom: 1,
       offsetX: 0,
       offsetY: 0,
       rotation: 0,
-      fitMode:
-        selectedPlacement.fitMode === "contain_blur" || selectedPlacement.fitMode === "smart_crop"
-          ? selectedPlacement.fitMode
-          : "cover"
+      focusX: 50,
+      focusY: 50,
+      blurBackground: false,
+      fitMode: "cover"
     });
+  }
+
+  async function clearSelectedSlotPhoto() {
+    if (!selectedPlacement) {
+      return;
+    }
+
+    pushHistory();
+    setPlacements((currentPlacements) =>
+      currentPlacements.filter((placement) => placement.id !== selectedPlacement.id)
+    );
+    setPlacementSaveState("saving");
+
+    try {
+      const response = await fetch(`/api/projects/${project.guestToken}/placements`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          placementId: selectedPlacement.id,
+          slotId: selectedPlacement.slotId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Clear slot failed.");
+      }
+
+      savedPlacementPayloadsRef.current.delete(selectedPlacement.id);
+      setPlacementSaveState("saved");
+    } catch {
+      setPlacementSaveState("error");
+    }
   }
 
   return (
@@ -403,6 +824,8 @@ export function CustomerEditor({
                   showCutGuides={showCutGuides}
                   template={template}
                   textValues={textValues}
+                  onSlotDrag={dragPlacement}
+                  onSlotDragEnd={endPlacementDrag}
                   onSlotSelect={setSelectedSlotId}
                 />
               </div>
@@ -424,19 +847,21 @@ export function CustomerEditor({
               selectedSlotId={selectedSlotId}
               selectedSlotIndex={selectedSlotIndex}
               textValues={textValues}
+              templateSlug={template.slug}
+              canRedo={canRedo}
+              canUndo={canUndo}
               onFitModeChange={changeFitMode}
+              onClearSlotPhoto={clearSelectedSlotPhoto}
               onPhotoChange={changeSelectedPhoto}
+              onRedo={redoEditorChange}
+              onUndo={undoEditorChange}
               onNudge={nudgePlacement}
-              onReset={() =>
-                updateSelectedPlacement({
-                  zoom: 1,
-                  offsetX: 0,
-                  offsetY: 0,
-                  rotation: 0,
-                  fitMode: "cover"
-                })
-              }
+              onReset={resetManualCrop}
+              onResetSmart={() => void resetSelectedSmartPosition()}
+              onBlurBackgroundChange={toggleBlurBackground}
               onTextChange={updateTextField}
+              onTextStyleChange={updateTextStyle}
+              onTextValueChange={updateTextValue}
               onEmojiInsert={insertEmoji}
               onToggleCutGuides={setShowCutGuides}
               onRotationChange={(rotation) => updateSelectedPlacement({ rotation })}
@@ -465,19 +890,21 @@ export function CustomerEditor({
           selectedSlotId={selectedSlotId}
           selectedSlotIndex={selectedSlotIndex}
           textValues={textValues}
+          templateSlug={template.slug}
+          canRedo={canRedo}
+          canUndo={canUndo}
           onFitModeChange={changeFitMode}
+          onClearSlotPhoto={clearSelectedSlotPhoto}
           onPhotoChange={changeSelectedPhoto}
+          onRedo={redoEditorChange}
+          onUndo={undoEditorChange}
           onNudge={nudgePlacement}
-          onReset={() =>
-            updateSelectedPlacement({
-              zoom: 1,
-              offsetX: 0,
-              offsetY: 0,
-              rotation: 0,
-              fitMode: "cover"
-            })
-          }
+          onReset={resetManualCrop}
+          onResetSmart={() => void resetSelectedSmartPosition()}
+          onBlurBackgroundChange={toggleBlurBackground}
           onTextChange={updateTextField}
+          onTextStyleChange={updateTextStyle}
+          onTextValueChange={updateTextValue}
           onEmojiInsert={insertEmoji}
           onToggleCutGuides={setShowCutGuides}
           onRotationChange={(rotation) => updateSelectedPlacement({ rotation })}
@@ -506,16 +933,26 @@ function EditorControls({
   showCutGuides,
   adminMode,
   textValues,
+  templateSlug,
   onZoomChange,
   onRotationChange,
   onNudge,
   onFitModeChange,
   onPhotoChange,
   onReset,
+  onResetSmart,
+  onBlurBackgroundChange,
   onTextChange,
+  onTextStyleChange,
+  onTextValueChange,
   onEmojiInsert,
   onSlotSelect,
-  onToggleCutGuides
+  onToggleCutGuides,
+  canRedo,
+  canUndo,
+  onClearSlotPhoto,
+  onRedo,
+  onUndo
 }: {
   selectedPlacement?: ProjectPlacementSummary;
   selectedSlotId: string;
@@ -530,16 +967,26 @@ function EditorControls({
   showCutGuides: boolean;
   adminMode: boolean;
   textValues: Record<string, string>;
+  templateSlug: string;
   onZoomChange: (zoom: number) => void;
   onRotationChange: (rotation: number) => void;
   onNudge: (axis: "offsetX" | "offsetY", amount: number) => void;
   onFitModeChange: (fitMode: ImplementedFitMode) => void;
   onPhotoChange: (photoId: string) => void;
   onReset: () => void;
+  onResetSmart: () => void;
+  onBlurBackgroundChange: (enabled: boolean) => void;
   onTextChange: (field: TemplateTextFieldSeed, value: string) => void;
+  onTextStyleChange: (scope: string, property: TextStyleProperty, value: string) => void;
+  onTextValueChange: (fieldKey: string, value: string, maxLength?: number) => void;
   onEmojiInsert: (field: TemplateTextFieldSeed, emoji: string) => void;
   onSlotSelect: (slotId: string) => void;
   onToggleCutGuides: (showCutGuides: boolean) => void;
+  canRedo: boolean;
+  canUndo: boolean;
+  onClearSlotPhoto: () => void;
+  onRedo: () => void;
+  onUndo: () => void;
 }) {
   const selectedSlot = selectedSlotIndex >= 0 ? layout.slots[selectedSlotIndex] : undefined;
   const availableFitOptions = fitModeOptions.filter((option) => {
@@ -553,13 +1000,13 @@ function EditorControls({
 
     return true;
   });
-  const isContainBlur = selectedPlacement?.fitMode === "contain_blur";
-  const canCrop = Boolean(selectedPlacement && !isContainBlur);
+  const canCrop = Boolean(selectedPlacement);
   const zoomPercent = Math.round((selectedPlacement?.zoom ?? 1) * 100);
   const rotationDegrees = Math.round(selectedPlacement?.rotation ?? 0);
   const selectedPhoto = selectedPlacement
     ? findPhotoById(photos, selectedPlacement.photoId)
     : undefined;
+  const isPolaroidTemplate = templateSlug === POLAROID_TEMPLATE_SLUG;
 
   return (
     <div className="editor-inspector min-w-0 overflow-x-hidden p-4 lg:p-5">
@@ -576,6 +1023,33 @@ function EditorControls({
       </div>
 
       <div className="mt-4 grid gap-4">
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            className="focus-ring min-h-10 rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-xs font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!canUndo}
+            onClick={onUndo}
+            type="button"
+          >
+            Undo
+          </button>
+          <button
+            className="focus-ring min-h-10 rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-xs font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!canRedo}
+            onClick={onRedo}
+            type="button"
+          >
+            Redo
+          </button>
+          <button
+            className="focus-ring min-h-10 rounded-full border border-rose/35 bg-paper px-3 text-xs font-semibold text-rose transition hover:bg-rose-soft disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!selectedPlacement}
+            onClick={onClearSlotPhoto}
+            type="button"
+          >
+            Clear spot
+          </button>
+        </div>
+
         <SlotQuickPicker
           filledSlotCount={filledSlotCount}
           layout={layout}
@@ -597,6 +1071,16 @@ function EditorControls({
         ) : null}
 
         {adminMode ? <DesignToolsPanel /> : null}
+
+        {isPolaroidTemplate && selectedSlot ? (
+          <PolaroidCaptionControls
+            selectedSlotIndex={selectedSlotIndex}
+            slotId={selectedSlot.id}
+            textValues={textValues}
+            onTextStyleChange={onTextStyleChange}
+            onTextValueChange={onTextValueChange}
+          />
+        ) : null}
 
         <label className="grid gap-2 text-sm font-semibold text-charcoal">
           <span className="flex items-center justify-between gap-3">
@@ -627,8 +1111,8 @@ function EditorControls({
           <input
             className="accent-rose"
             disabled={!canCrop}
-            max={45}
-            min={-45}
+            max={90}
+            min={-90}
             onChange={(event) => onRotationChange(Number(event.target.value))}
             step={1}
             type="range"
@@ -642,6 +1126,17 @@ function EditorControls({
             checked={showCutGuides}
             className="size-4 accent-rose"
             onChange={(event) => onToggleCutGuides(event.target.checked)}
+            type="checkbox"
+          />
+        </label>
+
+        <label className="flex min-h-11 items-center justify-between gap-3 rounded-[8px] border border-[rgb(199_163_95_/_0.25)] bg-paper px-3 text-sm font-semibold text-charcoal">
+          Blur background
+          <input
+            checked={selectedPlacement?.blurBackground ?? false}
+            className="size-4 accent-rose"
+            disabled={!selectedPlacement || selectedSlot?.allowBlurFill === false}
+            onChange={(event) => onBlurBackgroundChange(event.target.checked)}
             type="checkbox"
           />
         </label>
@@ -700,12 +1195,20 @@ function EditorControls({
 
         <div className="grid grid-cols-2 gap-2">
           <button
-            className="focus-ring col-span-2 min-h-11 rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-4 text-sm font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring min-h-11 rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-4 text-sm font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-50"
             disabled={!selectedPlacement}
             onClick={onReset}
             type="button"
           >
-            Reset crop
+            Reset manual
+          </button>
+          <button
+            className="focus-ring min-h-11 rounded-full bg-charcoal px-4 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)] disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!selectedPlacement}
+            onClick={onResetSmart}
+            type="button"
+          >
+            Reset smart
           </button>
         </div>
       </div>
@@ -747,12 +1250,255 @@ function EditorControls({
                     </button>
                   ))}
                 </div>
+                <TextStyleControls
+                  defaultFontSize={field.fontSize}
+                  maxFontSize={72}
+                  minFontSize={10}
+                  scope={field.key}
+                  textValues={textValues}
+                  onTextStyleChange={onTextStyleChange}
+                />
               </label>
             ))}
           </div>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function PolaroidCaptionControls({
+  selectedSlotIndex,
+  slotId,
+  textValues,
+  onTextStyleChange,
+  onTextValueChange
+}: {
+  selectedSlotIndex: number;
+  slotId: string;
+  textValues: Record<string, string>;
+  onTextStyleChange: (scope: string, property: TextStyleProperty, value: string) => void;
+  onTextValueChange: (fieldKey: string, value: string, maxLength?: number) => void;
+}) {
+  const captionKey = getPolaroidCaptionTextKey(slotId);
+  const captionScope = getPolaroidCaptionStyleScope(slotId);
+  const captionValue = textValues[captionKey] ?? "";
+
+  return (
+    <section
+      aria-label={`Caption tools for photo spot ${selectedSlotIndex + 1}`}
+      className="rounded-[8px] border border-[rgb(199_163_95_/_0.25)] bg-paper p-3"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-rose">
+          Caption text
+        </p>
+        <span className="rounded-full bg-cream px-2 py-1 text-xs font-semibold text-charcoal-soft">
+          Spot {selectedSlotIndex + 1}
+        </span>
+      </div>
+      <label className="mt-3 grid gap-2 text-sm font-semibold text-charcoal">
+        Write under photo
+        <input
+          className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal text-charcoal"
+          maxLength={42}
+          onChange={(event) => onTextValueChange(captionKey, event.target.value, 42)}
+          placeholder="Our adventure"
+          value={captionValue}
+        />
+      </label>
+      <div className="mt-3 flex flex-wrap gap-2" aria-label="Caption emoji tools">
+        {quickEmojis.map((emoji) => (
+          <button
+            aria-label={`Add ${emoji.label}`}
+            className="focus-ring flex size-9 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.35)] bg-cream text-sm transition hover:bg-rose-soft"
+            key={emoji.label}
+            onClick={() => onTextValueChange(captionKey, `${captionValue}${emoji.value}`, 42)}
+            type="button"
+          >
+            {emoji.value}
+          </button>
+        ))}
+      </div>
+      <div className="mt-4">
+        <TextStyleControls
+          defaultFontSize={18}
+          maxFontSize={32}
+          minFontSize={10}
+          scope={captionScope}
+          textValues={textValues}
+          onTextStyleChange={onTextStyleChange}
+        />
+      </div>
+    </section>
+  );
+}
+
+function TextStyleControls({
+  defaultFontSize,
+  maxFontSize,
+  minFontSize,
+  scope,
+  textValues,
+  onTextStyleChange
+}: {
+  defaultFontSize: number;
+  maxFontSize: number;
+  minFontSize: number;
+  scope: string;
+  textValues: Record<string, string>;
+  onTextStyleChange: (scope: string, property: TextStyleProperty, value: string) => void;
+}) {
+  const style = getEditableTextStyle({
+    defaultFontSize,
+    scope,
+    textValues
+  });
+
+  return (
+    <div className="grid gap-3 rounded-[8px] border border-[rgb(199_163_95_/_0.2)] bg-cream p-3">
+      <label className="grid gap-2 text-sm font-semibold text-charcoal">
+        Font
+        <select
+          className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-medium text-charcoal"
+          onChange={(event) => onTextStyleChange(scope, "fontFamily", event.target.value)}
+          value={style.fontFamily}
+        >
+          {handwritingFontOptions.map((font) => (
+            <option key={font.family} value={font.family}>
+              {font.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div
+        className="min-h-12 rounded-[8px] border border-[rgb(199_163_95_/_0.24)] bg-paper px-3 py-2 text-center text-lg leading-tight text-charcoal"
+        style={{
+          color: style.color,
+          fontFamily: style.fontStack,
+          fontStyle: style.isItalic ? "italic" : "normal",
+          fontWeight: style.isBold ? 700 : 400,
+          textAlign: style.align
+        }}
+      >
+        Memories forever
+      </div>
+
+      <div className="grid grid-cols-5 gap-2" aria-label="Text style controls">
+        <StyleToggleButton
+          active={style.isBold}
+          label="Bold"
+          onClick={() => onTextStyleChange(scope, "bold", style.isBold ? "0" : "1")}
+        >
+          B
+        </StyleToggleButton>
+        <StyleToggleButton
+          active={style.isItalic}
+          label="Italic"
+          onClick={() => onTextStyleChange(scope, "italic", style.isItalic ? "0" : "1")}
+        >
+          I
+        </StyleToggleButton>
+        <StyleToggleButton
+          active={style.align === "left"}
+          label="Align left"
+          onClick={() => onTextStyleChange(scope, "align", "left")}
+        >
+          L
+        </StyleToggleButton>
+        <StyleToggleButton
+          active={style.align === "center"}
+          label="Align center"
+          onClick={() => onTextStyleChange(scope, "align", "center")}
+        >
+          C
+        </StyleToggleButton>
+        <StyleToggleButton
+          active={style.align === "right"}
+          label="Align right"
+          onClick={() => onTextStyleChange(scope, "align", "right")}
+        >
+          R
+        </StyleToggleButton>
+      </div>
+
+      <label className="grid gap-2 text-sm font-semibold text-charcoal">
+        <span className="flex items-center justify-between gap-3">
+          <span>Size</span>
+          <span className="rounded-full bg-paper px-2 py-1 text-xs text-charcoal-soft">
+            {Math.round(style.fontSize)} px
+          </span>
+        </span>
+        <input
+          className="accent-rose"
+          max={maxFontSize}
+          min={minFontSize}
+          onChange={(event) => onTextStyleChange(scope, "fontSize", event.target.value)}
+          step={1}
+          type="range"
+          value={style.fontSize}
+        />
+      </label>
+
+      <div className="grid gap-2 text-sm font-semibold text-charcoal">
+        Color
+        <div className="flex flex-wrap items-center gap-2">
+          {textColorOptions.map((color) => (
+            <button
+              aria-label={`Use text color ${color}`}
+              aria-pressed={style.color === color}
+              className={cn(
+                "focus-ring size-8 rounded-full border transition",
+                style.color === color
+                  ? "border-charcoal ring-2 ring-rose/35"
+                  : "border-[rgb(199_163_95_/_0.45)]"
+              )}
+              key={color}
+              onClick={() => onTextStyleChange(scope, "color", color)}
+              style={{ backgroundColor: color }}
+              type="button"
+            />
+          ))}
+          <input
+            aria-label="Custom text color"
+            className="focus-ring h-8 w-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper p-1"
+            onChange={(event) => onTextStyleChange(scope, "color", event.target.value)}
+            type="color"
+            value={style.color}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StyleToggleButton({
+  active,
+  children,
+  label,
+  onClick
+}: {
+  active: boolean;
+  children: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      aria-pressed={active}
+      className={cn(
+        "focus-ring flex aspect-square min-h-10 items-center justify-center rounded-[8px] border text-sm font-bold transition",
+        active
+          ? "border-rose bg-rose-soft text-charcoal"
+          : "border-[rgb(199_163_95_/_0.35)] bg-paper text-charcoal hover:bg-cream"
+      )}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -783,9 +1529,9 @@ function SlotQuickPicker({
       </div>
       <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1">
         {layout.slots.map((slot, index) => {
-          const placement =
-            placements.find((currentPlacement) => currentPlacement.slotId === slot.id) ??
-            placements[index];
+          const placement = placements.find(
+            (currentPlacement) => currentPlacement.slotId === slot.id
+          );
           const photo = placement ? photoById.get(placement.photoId) : undefined;
           const isSelected = selectedSlotId === slot.id;
 
@@ -1129,6 +1875,9 @@ function serializePlacement(placement: ProjectPlacementSummary) {
     offsetX: placement.offsetX,
     offsetY: placement.offsetY,
     rotation: placement.rotation,
+    focusX: placement.focusX,
+    focusY: placement.focusY,
+    blurBackground: placement.blurBackground,
     fitMode: placement.fitMode
   });
 }
@@ -1139,27 +1888,36 @@ function normalizePlacementForEditor(
 ): ProjectPlacementSummary {
   const fitMode = normalizeEditableFitModeForSlot(placement.fitMode, slot);
 
-  if (fitMode === "contain_blur") {
-    return {
-      ...placement,
-      fitMode,
-      zoom: 1,
-      offsetX: 0,
-      offsetY: 0,
-      rotation: 0
-    };
-  }
-
   return {
     ...placement,
     fitMode,
     zoom: clamp(placement.zoom, 1, 2.8),
     offsetX: clamp(placement.offsetX, -80, 80),
     offsetY: clamp(placement.offsetY, -80, 80),
-    rotation: clamp(placement.rotation, -45, 45)
+    rotation: clamp(placement.rotation, -90, 90),
+    focusX: clamp(placement.focusX, 0, 100),
+    focusY: clamp(placement.focusY, 0, 100),
+    blurBackground: placement.blurBackground || fitMode === "contain_blur"
   };
+}
+
+function getSmartFitKey(placement: ProjectPlacementSummary) {
+  return `${placement.id}:${placement.photoId}`;
 }
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return (
+    target.isContentEditable ||
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT"
+  );
 }

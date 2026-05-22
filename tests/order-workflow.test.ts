@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canTransitionOrderStatus,
   getOrderStatusActions,
   isOrderStatusAtLeast,
   orderStatuses,
@@ -38,5 +39,21 @@ describe("admin order workflow", () => {
     expect(isOrderStatusAtLeast("ready_to_print", "approved")).toBe(true);
     expect(isOrderStatusAtLeast("delivered", "ready_to_print")).toBe(true);
     expect(isOrderStatusAtLeast("cancelled", "delivered")).toBe(true);
+  });
+
+  it("blocks impossible status jumps unless admin override is explicit", () => {
+    expect(
+      canTransitionOrderStatus({
+        from: "new_order",
+        to: "ready_to_print"
+      })
+    ).toBe(false);
+    expect(
+      canTransitionOrderStatus({
+        from: "new_order",
+        to: "ready_to_print",
+        allowOverride: true
+      })
+    ).toBe(true);
   });
 });

@@ -31,7 +31,8 @@ export async function POST(request: Request, { params }: ExportRouteProps) {
       await updateOrderStatus({
         orderId,
         status: "ready_to_print",
-        note: "Print PDF generated and ready for production."
+        note: "Print PDF generated and ready for production.",
+        allowOverride: true
       });
     }
   } catch (error) {

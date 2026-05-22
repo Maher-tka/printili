@@ -57,6 +57,17 @@ export const categories: CategorySeed[] = [
       "Browse wedding welcome poster templates and elegant printable photo designs for wedding celebrations."
   },
   {
+    id: "graduation",
+    slug: "graduation",
+    name: "Graduation",
+    description: "Custom labels and stickers for graduation parties.",
+    image: "/printili/cat-graduation-v2.webp",
+    imageAlt: "Graduation labels and stickers product scene",
+    seoTitle: "Graduation Labels And Stickers",
+    seoDescription:
+      "Create printable graduation water bottle labels and round juice stickers with names, year, colors, and optional photos."
+  },
+  {
     id: "cut_sheet",
     slug: "cut-sheets",
     name: "Cut Sheets",
@@ -81,6 +92,82 @@ export const categories: CategorySeed[] = [
 ];
 
 export const featuredTemplates: TemplateSeed[] = [
+  {
+    id: "graduation-water-bottle-label",
+    slug: "graduation-water-bottle-label",
+    name: "Graduation Water Bottle Label",
+    categoryId: "graduation",
+    productType: "label",
+    minPhotos: 1,
+    maxPhotos: 1,
+    preferredPortraitCount: 1,
+    preferredLandscapeCount: 0,
+    preferredSquareCount: 0,
+    sheetSize: "custom",
+    orientation: "landscape",
+    widthMm: 200,
+    heightMm: 40,
+    productKind: "graduation_bottle_label",
+    supportedOrientations: ["portrait", "square"],
+    hasCutGuides: true,
+    cutLinePt: 0.25,
+    safeMarginMm: 2,
+    bleedMm: 2,
+    dpi: 300,
+    tags: ["graduation", "water bottle label", "label", "party"],
+    isFeatured: true,
+    description: "A personalized 4 x 20 cm graduation water bottle label.",
+    priceLabel: "From 1.20 TND",
+    bestFor: ["Graduation parties", "Water bottles", "Custom party favors"],
+    printNotes: [
+      "Custom 4 x 20 cm label.",
+      "Designed for one optional graduate photo plus name, school, year, and message.",
+      "Includes safe area and cut guide support."
+    ],
+    previewImage: "/printili/cat-graduation-v2.webp",
+    previewAlt: "Graduation water bottle label preview",
+    seoTitle: "Graduation Water Bottle Label",
+    seoDescription:
+      "Create a personalized 4 x 20 cm graduation water bottle label with a name, school, year, color theme, optional photo, and message."
+  },
+  {
+    id: "graduation-round-juice-sticker",
+    slug: "graduation-round-juice-sticker",
+    name: "Graduation Round Juice Sticker",
+    categoryId: "graduation",
+    productType: "sticker",
+    minPhotos: 1,
+    maxPhotos: 1,
+    preferredPortraitCount: 1,
+    preferredLandscapeCount: 0,
+    preferredSquareCount: 0,
+    sheetSize: "custom",
+    orientation: "portrait",
+    widthMm: 40,
+    heightMm: 40,
+    productKind: "graduation_round_sticker",
+    supportedOrientations: ["portrait", "square"],
+    hasCutGuides: true,
+    cutLinePt: 0.25,
+    safeMarginMm: 2,
+    bleedMm: 2,
+    dpi: 300,
+    tags: ["graduation", "round sticker", "juice sticker", "party"],
+    isFeatured: true,
+    description: "A personalized 4 cm round graduation sticker for juice bottles and party favors.",
+    priceLabel: "From 0.45 TND",
+    bestFor: ["Juice bottles", "Party favors", "Graduation tables"],
+    printNotes: [
+      "Custom 4 cm diameter round sticker.",
+      "Designed for one optional graduate photo plus name, year, color theme, and message.",
+      "Includes round cut guide support."
+    ],
+    previewImage: "/printili/cat-graduation-v2.webp",
+    previewAlt: "Graduation round juice sticker preview",
+    seoTitle: "Graduation Round Juice Sticker",
+    seoDescription:
+      "Create a personalized 4 cm round graduation sticker with a name, year, color theme, optional photo, and short message."
+  },
   {
     id: "a4-polaroid-9",
     slug: "a4-9-polaroid-cut-sheet",

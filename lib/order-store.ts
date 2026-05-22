@@ -8,7 +8,11 @@ import {
   SampleUseConsent,
   SheetSize
 } from "@/lib/generated/prisma/client";
-import { type OrderStatusId } from "@/lib/order-workflow";
+import {
+  canTransitionOrderStatus,
+  getInvalidTransitionMessage,
+  type OrderStatusId
+} from "@/lib/order-workflow";
 import { getGuestProject } from "@/lib/project-store";
 import {
   assertLocalJsonFallbackAllowed,
@@ -89,6 +93,7 @@ export type CreateOrderInput = {
   finish: "matte" | "glossy";
   urgentOrder: boolean;
   deliveryFee: number | null;
+  totalPrice: number;
   sampleUseConsent: SampleUseConsentId;
 };
 
@@ -130,6 +135,7 @@ export async function createOrder(input: CreateOrderInput) {
           finish: input.finish,
           urgentOrder: input.urgentOrder,
           deliveryFee: input.deliveryFee,
+          totalPrice: input.totalPrice,
           sampleUseConsent: toPrismaConsent(input.sampleUseConsent),
           paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
           status: OrderStatus.NEW_ORDER,
@@ -189,7 +195,7 @@ export async function createOrder(input: CreateOrderInput) {
     sampleUseConsent: input.sampleUseConsent,
     paymentMethod: "cash_on_delivery",
     status: "new_order",
-    totalPrice: null,
+    totalPrice: input.totalPrice,
     deliveryFee: input.deliveryFee,
     previewFilePath: null,
     printFilePath: null,
@@ -287,12 +293,14 @@ export async function updateOrderStatus({
   orderId,
   status,
   note,
-  changedBy = "admin"
+  changedBy = "admin",
+  allowOverride = false
 }: {
   orderId: string;
   status: OrderStatusId;
   note?: string;
   changedBy?: string;
+  allowOverride?: boolean;
 }) {
   if (hasConfiguredDatabaseUrl()) {
     try {
@@ -308,6 +316,12 @@ export async function updateOrderStatus({
 
       if (currentOrder.status === toPrismaStatus(status)) {
         return toOrderSummary(currentOrder);
+      }
+
+      const currentStatus = fromPrismaStatus(currentOrder.status);
+
+      if (!canTransitionOrderStatus({ from: currentStatus, to: status, allowOverride })) {
+        throw new Error(getInvalidTransitionMessage(currentStatus, status));
       }
 
       const updatedOrder = await prisma.order.update({
@@ -335,6 +349,10 @@ export async function updateOrderStatus({
   return updateLocalOrder(orderId, (order) => {
     if (order.status === status) {
       return order;
+    }
+
+    if (!canTransitionOrderStatus({ from: order.status, to: status, allowOverride })) {
+      throw new Error(getInvalidTransitionMessage(order.status, status));
     }
 
     const now = new Date().toISOString();

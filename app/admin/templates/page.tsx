@@ -8,6 +8,7 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { templateMakerCanvasHref } from "@/lib/admin-tool-links";
 import {
   createAdminTemplateCategory,
+  duplicatePublicTemplate,
   getAdminTemplateCatalog,
   getAdminTemplateCategories,
   getPublicTemplateEditorLayout,
@@ -20,7 +21,7 @@ import { getTemplateQualityReport, type TemplateQualityReport } from "@/lib/temp
 import {
   categoryLabels,
   formatPhotoCountRange,
-  formatSheetSizeCm,
+  formatTemplateSize,
   productTypeLabels
 } from "@/lib/templates";
 
@@ -48,11 +49,12 @@ export default async function AdminTemplatesPage({ searchParams }: TemplatesAdmi
     redirect("/admin");
   }
 
-  const [{ saved, removed, restored, category }, templates, adminCategories] = await Promise.all([
-    normalizeSearchParams(searchParams),
-    getAdminTemplateCatalog(),
-    getAdminTemplateCategories()
-  ]);
+  const [{ saved, removed, restored, category, duplicated }, templates, adminCategories] =
+    await Promise.all([
+      normalizeSearchParams(searchParams),
+      getAdminTemplateCatalog(),
+      getAdminTemplateCategories()
+    ]);
   const qualityReports = await buildTemplateQualityReports(templates);
   const activeTemplates = templates.filter((template) => !template.isHidden);
   const hiddenTemplates = templates.filter((template) => template.isHidden);
@@ -107,7 +109,13 @@ export default async function AdminTemplatesPage({ searchParams }: TemplatesAdmi
         </div>
       </div>
 
-      <AdminNotice category={category} removed={removed} restored={restored} saved={saved} />
+      <AdminNotice
+        category={category}
+        duplicated={duplicated}
+        removed={removed}
+        restored={restored}
+        saved={saved}
+      />
 
       <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatTile label="Live templates" value={activeTemplates.length} />
@@ -289,6 +297,15 @@ function TemplateAdminRow({
               Needs price
             </span>
           )}
+          {template.isFeatured ? (
+            <span className="rounded-full bg-[rgb(216_115_85_/_0.14)] px-2.5 py-1 text-xs font-semibold text-rose">
+              Featured
+            </span>
+          ) : (
+            <span className="rounded-full bg-cream px-2.5 py-1 text-xs font-semibold text-charcoal-soft">
+              Active
+            </span>
+          )}
           {quality ? (
             <span
               className={
@@ -318,7 +335,7 @@ function TemplateAdminRow({
           </div>
           <div className="col-span-2">
             <dt className="font-semibold text-charcoal">Print size</dt>
-            <dd className="mt-1">{formatSheetSizeCm(template.sheetSize, template.orientation)}</dd>
+            <dd className="mt-1">{formatTemplateSize(template)}</dd>
           </div>
           <div>
             <dt className="font-semibold text-charcoal">Slots</dt>
@@ -389,6 +406,18 @@ function TemplateAdminRow({
             ))}
           </select>
         </label>
+        <label className="grid gap-2 text-sm font-semibold text-charcoal sm:col-span-2">
+          Publish state
+          <select
+            className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-medium"
+            defaultValue={template.isHidden ? "hidden" : template.isFeatured ? "featured" : "active"}
+            name="publishState"
+          >
+            <option value="active">Active public template</option>
+            <option value="featured">Featured public template</option>
+            <option value="hidden">Draft / hidden from public</option>
+          </select>
+        </label>
       </div>
 
       <div className="flex flex-wrap gap-2 lg:flex-col">
@@ -417,6 +446,12 @@ function TemplateAdminRow({
               Preview
             </Link>
             <button
+              className="focus-ring inline-flex min-h-10 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-4 text-sm font-semibold text-charcoal"
+              formAction={duplicateTemplateAction}
+            >
+              Duplicate
+            </button>
+            <button
               className="focus-ring inline-flex min-h-10 items-center justify-center rounded-full border border-rose/50 px-4 text-sm font-semibold text-rose"
               formAction={removeTemplateAction}
             >
@@ -440,17 +475,21 @@ function StatTile({ label, value }: { label: string; value: number }) {
 
 function AdminNotice({
   category,
+  duplicated,
   removed,
   restored,
   saved
 }: {
   category?: string;
+  duplicated?: string;
   removed?: string;
   restored?: string;
   saved?: string;
 }) {
   const message = saved
     ? "Template details saved."
+    : duplicated
+      ? "Template duplicated for editing."
     : removed
       ? "Template removed from the public catalog."
       : restored
@@ -512,6 +551,7 @@ async function normalizeSearchParams(
     saved: getQueryValue(params.saved),
     removed: getQueryValue(params.removed),
     restored: getQueryValue(params.restored),
+    duplicated: getQueryValue(params.duplicated),
     category: getQueryValue(params.category)
   };
 }
@@ -541,6 +581,7 @@ async function saveTemplateDetailsAction(formData: FormData) {
   await ensureAdminAuthenticated();
   const slug = getText(formData, "slug");
   const adminCategoryId = getText(formData, "adminCategoryId");
+  const publishState = getText(formData, "publishState");
   const adminCategories = await getAdminTemplateCategories();
   const selectedCategory = adminCategories.find((category) => category.id === adminCategoryId);
   const categoryId = selectedCategory?.publicCategoryId ?? "custom";
@@ -551,11 +592,24 @@ async function saveTemplateDetailsAction(formData: FormData) {
     categoryId,
     description: getText(formData, "description"),
     priceLabel: getText(formData, "priceLabel"),
-    ctaLabel: getText(formData, "ctaLabel")
+    ctaLabel: getText(formData, "ctaLabel"),
+    isHidden: publishState === "hidden",
+    isFeatured: publishState === "featured"
   });
 
   revalidateTemplatePages(slug);
   redirect(`/admin/templates?saved=${encodeURIComponent(slug)}`);
+}
+
+async function duplicateTemplateAction(formData: FormData) {
+  "use server";
+
+  await ensureAdminAuthenticated();
+  const slug = getText(formData, "slug");
+  const duplicate = await duplicatePublicTemplate(slug);
+
+  revalidateTemplatePages(duplicate.slug);
+  redirect(`/admin/templates?duplicated=${encodeURIComponent(duplicate.slug)}#${duplicate.slug}`);
 }
 
 async function removeTemplateAction(formData: FormData) {

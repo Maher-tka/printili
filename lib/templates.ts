@@ -3,7 +3,8 @@ import type {
   ProductType,
   SheetSize,
   TemplateCategoryId,
-  TemplateOrientation
+  TemplateOrientation,
+  TemplateSeed
 } from "@/types/templates";
 
 type RecommendationInput = {
@@ -32,19 +33,29 @@ const templateCategoryIds: TemplateCategoryId[] = [
   "family",
   "wedding",
   "cut_sheet",
+  "graduation",
   "custom"
 ];
 
 const sheetSizes: SheetSize[] = ["A4", "A3", "custom"];
 
-const productTypes: ProductType[] = ["poster", "cut_sheet", "framed_gift", "digital_printable"];
+const productTypes: ProductType[] = [
+  "poster",
+  "cut_sheet",
+  "framed_gift",
+  "digital_printable",
+  "label",
+  "sticker"
+];
 const deliveryTypes: DeliveryType[] = ["physical", "digital"];
 
 export const productTypeLabels: Record<ProductType, string> = {
   poster: "Poster",
   cut_sheet: "Cut Sheet",
   framed_gift: "Framed Gift",
-  digital_printable: "Digital Printable"
+  digital_printable: "Digital Printable",
+  label: "Label",
+  sticker: "Sticker"
 };
 
 export const sheetSizeLabels: Record<SheetSize, string> = {
@@ -66,6 +77,7 @@ export const categoryLabels: Record<TemplateCategoryId, string> = {
   family: "Family",
   wedding: "Wedding",
   cut_sheet: "Cut Sheets",
+  graduation: "Graduation",
   custom: "Custom Gifts"
 };
 
@@ -140,6 +152,16 @@ export function formatSheetSizeCm(sheetSize: SheetSize, orientation: "portrait" 
   const height = orientation === "portrait" ? dimensions.height : dimensions.width;
 
   return `${sheetSize} ${orientation} / ${formatCm(width)} x ${formatCm(height)} cm`;
+}
+
+export function formatTemplateSize(
+  template: Pick<TemplateSeed, "sheetSize" | "orientation" | "widthMm" | "heightMm">
+) {
+  if (template.sheetSize === "custom" && template.widthMm && template.heightMm) {
+    return `${formatCm(template.widthMm / 10)} x ${formatCm(template.heightMm / 10)} cm`;
+  }
+
+  return formatSheetSizeCm(template.sheetSize, template.orientation);
 }
 
 export function getFilteredTemplates({

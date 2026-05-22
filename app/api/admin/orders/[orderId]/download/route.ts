@@ -3,6 +3,11 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getOrderById } from "@/lib/order-store";
+import {
+  getExportPathForOrderFile,
+  isPathInsideDirectory,
+  type ExportFileKind
+} from "@/lib/print-export";
 
 export const runtime = "nodejs";
 
@@ -11,6 +16,11 @@ type DownloadRouteProps = {
 };
 
 const exportRoot = path.join(process.cwd(), ".local-storage", "exports");
+const contentTypes: Record<ExportFileKind, string> = {
+  print: "application/pdf",
+  preview: "image/jpeg",
+  summary: "application/json"
+};
 
 export async function GET(request: Request, { params }: DownloadRouteProps) {
   const authenticated = await isAdminAuthenticated();
@@ -28,13 +38,19 @@ export async function GET(request: Request, { params }: DownloadRouteProps) {
 
   const orderUrl = new URL(`/admin/orders/${orderId}`, request.url);
 
-  if (!order.printFilePath) {
+  const fileKind = getDownloadFileKind(request);
+  const storedFilePath =
+    fileKind === "print"
+      ? order.printFilePath
+      : getExportPathForOrderFile(order.orderNumber, fileKind);
+
+  if (!storedFilePath) {
     orderUrl.searchParams.set("download", "missing");
 
     return NextResponse.redirect(orderUrl, 303);
   }
 
-  const resolvedPath = path.resolve(order.printFilePath);
+  const resolvedPath = path.resolve(storedFilePath);
 
   if (!isPathInsideDirectory(path.resolve(exportRoot), resolvedPath)) {
     orderUrl.searchParams.set("download", "invalid");
@@ -57,13 +73,17 @@ export async function GET(request: Request, { params }: DownloadRouteProps) {
   return new Response(new Uint8Array(body), {
     headers: {
       "Content-Disposition": `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
-      "Content-Type": "application/pdf"
+      "Content-Type": contentTypes[fileKind]
     }
   });
 }
 
-function isPathInsideDirectory(root: string, target: string) {
-  const relativePath = path.relative(root, target);
+function getDownloadFileKind(request: Request): ExportFileKind {
+  const value = new URL(request.url).searchParams.get("file");
 
-  return Boolean(relativePath) && !relativePath.startsWith("..") && !path.isAbsolute(relativePath);
+  if (value === "preview" || value === "summary") {
+    return value;
+  }
+
+  return "print";
 }

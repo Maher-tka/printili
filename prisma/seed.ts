@@ -61,6 +61,9 @@ type TemplateSeed = {
   productType: ProductType;
   sheetSize: SheetSize;
   orientation: TemplateOrientation;
+  widthMm?: number;
+  heightMm?: number;
+  productKind?: string;
   minPhotos: number;
   maxPhotos: number;
   preferredPortraitCount: number;
@@ -137,6 +140,170 @@ function gridSlots({
 }
 
 const templateSeeds: TemplateSeed[] = [
+  {
+    slug: "graduation-water-bottle-label",
+    name: "Graduation Water Bottle Label",
+    category: TemplateCategory.GRADUATION,
+    productType: ProductType.LABEL,
+    sheetSize: SheetSize.CUSTOM,
+    orientation: TemplateOrientation.LANDSCAPE,
+    widthMm: 200,
+    heightMm: 40,
+    productKind: "graduation_bottle_label",
+    minPhotos: 1,
+    maxPhotos: 1,
+    preferredPortraitCount: 1,
+    preferredLandscapeCount: 0,
+    preferredSquareCount: 0,
+    hasCutGuides: true,
+    cutLinePt: 0.25,
+    safeMarginMm: 2,
+    bleedMm: 2,
+    tags: ["graduation", "water-bottle-label", "label", "party"],
+    isFeatured: true,
+    previewImageUrl: "/printili/cat-graduation-v2.webp",
+    slots: [
+      {
+        x: 0.035,
+        y: 0.12,
+        width: 0.18,
+        height: 0.76,
+        shape: SlotShape.RECT,
+        role: SlotRole.HERO,
+        preferredOrientation: PhotoOrientation.PORTRAIT,
+        zIndex: 1,
+        borderRadius: 0.12
+      }
+    ],
+    textFields: [
+      {
+        key: "graduate_name",
+        label: "Graduate name",
+        placeholder: "Mariam",
+        x: 0.25,
+        y: 0.16,
+        width: 0.42,
+        height: 0.24,
+        fontSize: 20,
+        maxLength: 42,
+        isRequired: true,
+        zIndex: 20
+      },
+      {
+        key: "school_name",
+        label: "School name",
+        placeholder: "Printili School",
+        x: 0.25,
+        y: 0.42,
+        width: 0.42,
+        height: 0.16,
+        fontSize: 11,
+        maxLength: 44,
+        zIndex: 21
+      },
+      {
+        key: "graduation_year",
+        label: "Graduation year",
+        placeholder: "2026",
+        x: 0.7,
+        y: 0.16,
+        width: 0.22,
+        height: 0.26,
+        fontSize: 18,
+        maxLength: 8,
+        isRequired: true,
+        zIndex: 22
+      },
+      {
+        key: "short_message",
+        label: "Short message",
+        placeholder: "Congratulations!",
+        x: 0.25,
+        y: 0.62,
+        width: 0.62,
+        height: 0.18,
+        fontSize: 10,
+        maxLength: 72,
+        zIndex: 23
+      }
+    ]
+  },
+  {
+    slug: "graduation-round-juice-sticker",
+    name: "Graduation Round Juice Sticker",
+    category: TemplateCategory.GRADUATION,
+    productType: ProductType.STICKER,
+    sheetSize: SheetSize.CUSTOM,
+    orientation: TemplateOrientation.PORTRAIT,
+    widthMm: 40,
+    heightMm: 40,
+    productKind: "graduation_round_sticker",
+    minPhotos: 1,
+    maxPhotos: 1,
+    preferredPortraitCount: 1,
+    preferredLandscapeCount: 0,
+    preferredSquareCount: 0,
+    hasCutGuides: true,
+    cutLinePt: 0.25,
+    safeMarginMm: 2,
+    bleedMm: 2,
+    tags: ["graduation", "round-sticker", "juice-sticker", "party"],
+    isFeatured: true,
+    previewImageUrl: "/printili/cat-graduation-v2.webp",
+    slots: [
+      {
+        x: 0.28,
+        y: 0.17,
+        width: 0.44,
+        height: 0.44,
+        shape: SlotShape.CIRCLE,
+        role: SlotRole.HERO,
+        preferredOrientation: PhotoOrientation.PORTRAIT,
+        zIndex: 1,
+        borderRadius: 0.5
+      }
+    ],
+    textFields: [
+      {
+        key: "graduate_name",
+        label: "Graduate name",
+        placeholder: "Mariam",
+        x: 0.14,
+        y: 0.64,
+        width: 0.72,
+        height: 0.12,
+        fontSize: 15,
+        maxLength: 30,
+        isRequired: true,
+        zIndex: 20
+      },
+      {
+        key: "graduation_year",
+        label: "Graduation year",
+        placeholder: "2026",
+        x: 0.26,
+        y: 0.78,
+        width: 0.48,
+        height: 0.1,
+        fontSize: 12,
+        maxLength: 8,
+        isRequired: true,
+        zIndex: 21
+      },
+      {
+        key: "short_message",
+        label: "Short message",
+        placeholder: "Congrats!",
+        x: 0.18,
+        y: 0.08,
+        width: 0.64,
+        height: 0.08,
+        fontSize: 9,
+        maxLength: 36,
+        zIndex: 22
+      }
+    ]
+  },
   {
     slug: "a4-9-polaroid-cut-sheet",
     name: "A4 9 Polaroid Cut Sheet",
@@ -745,6 +912,9 @@ async function main() {
       where: { slug: template.slug },
       update: {
         ...template,
+        widthMm: template.widthMm,
+        heightMm: template.heightMm,
+        productKind: template.productKind,
         slots: {
           deleteMany: {},
           create: slots
@@ -756,6 +926,9 @@ async function main() {
       },
       create: {
         ...template,
+        widthMm: template.widthMm,
+        heightMm: template.heightMm,
+        productKind: template.productKind,
         slots: {
           create: slots
         },

@@ -40,7 +40,14 @@ type ReviewPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const productTypes: ProductType[] = ["poster", "cut_sheet", "framed_gift", "digital_printable"];
+const productTypes: ProductType[] = [
+  "poster",
+  "cut_sheet",
+  "framed_gift",
+  "digital_printable",
+  "label",
+  "sticker"
+];
 const sheetSizes: SheetSize[] = ["A4", "A3", "custom"];
 const orientations: PageOrientation[] = ["portrait", "landscape"];
 const slotShapes: TemplateSlotShape[] = [

@@ -115,6 +115,7 @@ function categoryHeroImage(categoryId: string) {
     family: "/printili/cat-family-albums.webp",
     wedding: "/printili/cat-wedding-prints.webp",
     cut_sheet: "/printili/cat-polaroids.webp",
+    graduation: "/printili/cat-graduation-v2.webp",
     custom: "/printili/cat-personalized-gifts.webp"
   };
 

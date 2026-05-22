@@ -24,7 +24,7 @@ export default async function AdminPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [{ error, status }, authenticated] = await Promise.all([
+  const [{ city, error, q, status }, authenticated] = await Promise.all([
     searchParams,
     isAdminAuthenticated()
   ]);
@@ -43,9 +43,20 @@ export default async function AdminPage({
     counts[order.status] += 1;
   });
   const selectedStatus = getSelectedStatus(status);
-  const visibleOrders = selectedStatus
-    ? orders.filter((order) => order.status === selectedStatus)
-    : orders;
+  const query = getSingleValue(q).trim().toLowerCase();
+  const selectedCity = getSingleValue(city).trim().toLowerCase();
+  const visibleOrders = orders.filter((order) => {
+    const statusMatches = !selectedStatus || order.status === selectedStatus;
+    const cityMatches = !selectedCity || order.city.toLowerCase().includes(selectedCity);
+    const queryMatches =
+      !query ||
+      [order.orderNumber, order.clientName, order.whatsapp, order.projectCode]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+
+    return statusMatches && cityMatches && queryMatches;
+  });
 
   return (
     <section className="page-shell py-10 sm:py-14" aria-labelledby="admin-heading">
@@ -156,6 +167,34 @@ export default async function AdminPage({
         ) : null}
       </div>
 
+      <form className="soft-card mt-4 grid gap-3 p-4 sm:grid-cols-[1fr_220px_auto]" method="get">
+        {selectedStatus ? <input name="status" type="hidden" value={selectedStatus} /> : null}
+        <label className="grid gap-2 text-sm font-semibold text-charcoal">
+          Search
+          <input
+            className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
+            defaultValue={getSingleValue(q)}
+            name="q"
+            placeholder="Order, name, WhatsApp"
+          />
+        </label>
+        <label className="grid gap-2 text-sm font-semibold text-charcoal">
+          City
+          <input
+            className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
+            defaultValue={getSingleValue(city)}
+            name="city"
+            placeholder="Tunis"
+          />
+        </label>
+        <button
+          className="focus-ring self-end rounded-full bg-charcoal px-5 py-3 text-sm font-semibold text-paper"
+          type="submit"
+        >
+          Filter
+        </button>
+      </form>
+
       <div className="soft-card mt-4 overflow-x-auto">
         <table className="w-full min-w-[980px] border-collapse text-left text-sm">
           <thead className="bg-cream text-xs uppercase tracking-[0.08em] text-charcoal-soft">
@@ -168,6 +207,7 @@ export default async function AdminPage({
                 "Template",
                 "Sheet",
                 "Qty",
+                "Total",
                 "Status",
                 "Created",
                 "Action"
@@ -181,7 +221,7 @@ export default async function AdminPage({
           <tbody>
             {visibleOrders.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-charcoal-soft" colSpan={10}>
+                <td className="px-4 py-8 text-center text-charcoal-soft" colSpan={11}>
                   {selectedStatus ? "No orders in this status yet." : "No orders yet."}
                 </td>
               </tr>
@@ -195,6 +235,9 @@ export default async function AdminPage({
                   <td className="px-4 py-3">{order.templateSlug ?? "Template"}</td>
                   <td className="px-4 py-3">{order.sheetSize ?? "A4"}</td>
                   <td className="px-4 py-3">{order.quantity}</td>
+                  <td className="px-4 py-3">
+                    {order.totalPrice !== null ? `${order.totalPrice.toFixed(2)} TND` : "-"}
+                  </td>
                   <td className="px-4 py-3">{orderStatusLabels[order.status]}</td>
                   <td className="px-4 py-3">{new Date(order.createdAt).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
@@ -210,6 +253,10 @@ export default async function AdminPage({
       </div>
     </section>
   );
+}
+
+function getSingleValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : (value ?? "");
 }
 
 function StatusTile({
