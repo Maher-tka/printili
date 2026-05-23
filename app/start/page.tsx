@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PublicPageHero } from "@/components/printili/PublicPageHero";
 import { StartUploadFlow } from "@/components/start-upload-flow";
 import { getPublicTemplateBySlug } from "@/lib/public-template-store";
-import { formatSheetSizeCm } from "@/lib/templates";
+import { formatTemplateSize, getTemplateRecommendationVisibility } from "@/lib/templates";
 
 export const metadata: Metadata = {
   title: "Start A Private Photo Montage Project",
@@ -41,11 +41,14 @@ export default async function StartPage({ searchParams }: StartPageProps) {
           initialTemplateMinPhotos={selectedTemplate?.minPhotos}
           initialTemplateName={selectedTemplate?.name}
           initialTemplateSizeLabel={
-            selectedTemplate
-              ? formatSheetSizeCm(selectedTemplate.sheetSize, selectedTemplate.orientation)
-              : undefined
+            selectedTemplate ? formatTemplateSize(selectedTemplate) : undefined
           }
           initialTemplateSlug={selectedTemplate?.slug}
+          initialTemplateIsExplicitIntent={
+            selectedTemplate
+              ? getTemplateRecommendationVisibility(selectedTemplate) === "explicit_intent"
+              : false
+          }
         />
       </div>
     </section>

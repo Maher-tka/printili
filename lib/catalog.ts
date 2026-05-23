@@ -24,7 +24,7 @@ export function formatCatalogProductSize(product: {
     return `${formatCm(product.diameterCm)} cm diameter`;
   }
 
-  return `${formatCm(product.heightCm)} x ${formatCm(product.widthCm)} cm`;
+  return `${formatCm(product.widthCm)} x ${formatCm(product.heightCm)} cm`;
 }
 
 function formatCm(value: number) {

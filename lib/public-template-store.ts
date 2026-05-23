@@ -23,6 +23,7 @@ import type { TemplateFilterInput } from "@/lib/templates";
 import type {
   PageOrientation,
   ProductType,
+  RecommendationVisibility,
   SheetSize,
   TemplateCategoryId,
   TemplateEditorLayout,
@@ -64,6 +65,7 @@ type SaveTemplateInput = {
   };
   frames?: Array<Record<string, unknown>>;
   textFields?: Array<Record<string, unknown>>;
+  recommendationVisibility?: RecommendationVisibility | string;
 };
 
 type SavedTemplateResult = {
@@ -78,6 +80,7 @@ export type TemplateAdminMetadata = {
   description?: string;
   priceLabel?: string;
   ctaLabel?: string;
+  recommendationVisibility?: RecommendationVisibility;
   isHidden?: boolean;
   isFeatured?: boolean;
   updatedAt?: string;
@@ -562,6 +565,10 @@ async function normalizeTemplateInput(input: SaveTemplateInput): Promise<StoredT
     description:
       input.description?.trim() ||
       `Saved ${categoryLabels[categoryId].toLowerCase()} photo montage template.`,
+    recommendationVisibility: normalizeRecommendationVisibility(
+      input.recommendationVisibility,
+      categoryId
+    ),
     bestFor: [
       `${categoryLabels[categoryId]} gifts`,
       "Personalized photo montages",
@@ -675,6 +682,25 @@ function normalizeTags(
   ];
 
   return Array.from(new Set(values.map((tag) => tag.trim()).filter(Boolean))).slice(0, 12);
+}
+
+function normalizeRecommendationVisibility(
+  value: RecommendationVisibility | string | undefined,
+  categoryId: TemplateCategoryId
+): RecommendationVisibility {
+  if (value === "generic" || value === "explicit_intent") {
+    return value;
+  }
+
+  return getDefaultRecommendationVisibility(categoryId);
+}
+
+function getDefaultRecommendationVisibility(
+  categoryId: TemplateCategoryId
+): RecommendationVisibility {
+  return (
+    categories.find((category) => category.id === categoryId)?.recommendationVisibility ?? "generic"
+  );
 }
 
 function normalizePositiveInt(value: number | undefined, fallback: number) {
@@ -868,13 +894,18 @@ function applyAdminMetadata<TTemplate extends TemplateSeed>(
   if (!metadata) {
     return template;
   }
+  const categoryId = metadata.categoryId ?? template.categoryId;
 
   return {
     ...template,
-    categoryId: metadata.categoryId ?? template.categoryId,
+    categoryId,
     description: metadata.description ?? template.description,
     priceLabel: metadata.priceLabel ?? template.priceLabel,
     ctaLabel: metadata.ctaLabel ?? template.ctaLabel,
+    recommendationVisibility:
+      metadata.recommendationVisibility ??
+      template.recommendationVisibility ??
+      getDefaultRecommendationVisibility(categoryId),
     isFeatured: metadata.isFeatured ?? template.isFeatured
   };
 }
@@ -922,6 +953,9 @@ function normalizeTemplateAdminMetadata(value: unknown): TemplateAdminMetadata |
     description: getOptionalString(record.description),
     priceLabel: getOptionalString(record.priceLabel),
     ctaLabel: getOptionalString(record.ctaLabel),
+    recommendationVisibility: normalizeMetadataRecommendationVisibility(
+      record.recommendationVisibility
+    ),
     isHidden: record.isHidden === true,
     isFeatured: record.isFeatured === true,
     updatedAt: getOptionalString(record.updatedAt)
@@ -1024,6 +1058,14 @@ function normalizeMetadataCategory(value: unknown): TemplateCategoryId | undefin
     : undefined;
 }
 
+function normalizeMetadataRecommendationVisibility(
+  value: unknown
+): RecommendationVisibility | undefined {
+  return value === "generic" || value === "explicit_intent"
+    ? (value as RecommendationVisibility)
+    : undefined;
+}
+
 function getOptionalString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -1114,6 +1156,10 @@ function withStoredTemplateDefaults(template: StoredTemplateRecord): StoredTempl
     supportedOrientations: template.supportedOrientations ?? ["portrait", "landscape", "square"],
     bestFor: template.bestFor ?? [`${categoryLabels[template.categoryId]} gifts`],
     printNotes: template.printNotes ?? ["Saved from the admin template studio."],
+    recommendationVisibility: normalizeRecommendationVisibility(
+      template.recommendationVisibility,
+      template.categoryId
+    ),
     previewAlt: template.previewAlt || `${template.name} template preview`
   };
 }
@@ -1386,6 +1432,7 @@ function toTemplateSeedFromDatabase(template: {
     tags: template.tags,
     isFeatured: template.isFeatured,
     description,
+    recommendationVisibility: getDefaultRecommendationVisibility(categoryId),
     bestFor: [
       `${categoryLabels[categoryId]} gifts`,
       "Custom photo montage",

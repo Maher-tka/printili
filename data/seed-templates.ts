@@ -65,7 +65,8 @@ export const categories: CategorySeed[] = [
     imageAlt: "Graduation labels and stickers product scene",
     seoTitle: "Graduation Labels And Stickers",
     seoDescription:
-      "Create printable graduation water bottle labels and round juice stickers with names, year, colors, and optional photos."
+      "Create printable graduation water bottle labels and round juice stickers with names, year, colors, and optional photos.",
+    recommendationVisibility: "explicit_intent"
   },
   {
     id: "cut_sheet",
@@ -118,6 +119,8 @@ export const featuredTemplates: TemplateSeed[] = [
     isFeatured: true,
     description: "A personalized 4 x 20 cm graduation water bottle label.",
     priceLabel: "From 1.20 TND",
+    ctaLabel: "Create bottle label",
+    recommendationVisibility: "explicit_intent",
     bestFor: ["Graduation parties", "Water bottles", "Custom party favors"],
     printNotes: [
       "Custom 4 x 20 cm label.",
@@ -156,6 +159,8 @@ export const featuredTemplates: TemplateSeed[] = [
     isFeatured: true,
     description: "A personalized 4 cm round graduation sticker for juice bottles and party favors.",
     priceLabel: "From 0.45 TND",
+    ctaLabel: "Create round sticker",
+    recommendationVisibility: "explicit_intent",
     bestFor: ["Juice bottles", "Party favors", "Graduation tables"],
     printNotes: [
       "Custom 4 cm diameter round sticker.",

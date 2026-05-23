@@ -23,6 +23,21 @@ describe("template helpers", () => {
     expect(bestMatch.id).toBe("a4-polaroid-9");
   });
 
+  it("does not include explicit-intent products in generic recommendations", () => {
+    const recommendations = recommendTemplates({
+      photoCount: 1,
+      categoryId: "custom",
+      orientations: ["portrait"]
+    });
+
+    expect(recommendations.map((template) => template.slug)).not.toContain(
+      "graduation-water-bottle-label"
+    );
+    expect(recommendations.map((template) => template.slug)).not.toContain(
+      "graduation-round-juice-sticker"
+    );
+  });
+
   it("parses delivery and priced-only filters", () => {
     expect(
       parseTemplateFilters({

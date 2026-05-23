@@ -1,5 +1,104 @@
 # Printili Codex Progress
 
+## 2026-05-23 Explicit Product Intent Pass
+
+### Current Phase
+
+Graduation/product-intent recommendation safety.
+
+### Files Inspected
+
+- `CODEX_PROGRESS.md`
+- `package.json`
+- `types/templates.ts`
+- `types/catalog.ts`
+- `data/seed-templates.ts`
+- `data/catalog.ts`
+- `lib/templates.ts`
+- `lib/template-recommender.ts`
+- `lib/public-template-store.ts`
+- `lib/catalog.ts`
+- `app/start/page.tsx`
+- `components/start-upload-flow.tsx`
+- `app/api/projects/start/route.ts`
+- `app/project/[guestToken]/suggestions/page.tsx`
+- `app/templates/page.tsx`
+- `app/templates/[category]/page.tsx`
+- `app/categories/[slug]/page.tsx`
+- `components/catalog-product-card.tsx`
+- `components/template-card.tsx`
+- `components/template-filters.tsx`
+- `tests/template-recommender.test.ts`
+- `tests/templates.test.ts`
+- `app/api/recommendations/route.ts`
+
+### Files Changed
+
+- `types/templates.ts`
+- `data/seed-templates.ts`
+- `data/catalog.ts`
+- `lib/templates.ts`
+- `lib/template-recommender.ts`
+- `lib/public-template-store.ts`
+- `lib/catalog.ts`
+- `components/start-upload-flow.tsx`
+- `app/start/page.tsx`
+- `app/api/projects/start/route.ts`
+- `app/project/[guestToken]/suggestions/page.tsx`
+- `app/templates/[category]/page.tsx`
+- `app/categories/[slug]/page.tsx`
+- `components/catalog-product-card.tsx`
+- `tests/template-recommender.test.ts`
+- `tests/templates.test.ts`
+- `tests/project-start-route.test.ts`
+
+Ignored existing workspace item:
+- `react-canvas-editor` is still modified as a separate subproject and was not touched.
+
+### Completed Tasks
+
+- Added scalable `recommendationVisibility: "generic" | "explicit_intent"` metadata for categories/templates.
+- Marked the Graduation category and both Graduation templates as `explicit_intent`.
+- Updated both recommendation helpers so `generic_photo_upload` is the default and excludes explicit-intent templates.
+- Added `explicit_product_intent` context so direct product/category flows can still include Graduation products when intentionally selected.
+- Removed Graduation from the normal upload-first category radio list and added a separate "Making Graduation labels or stickers?" callout that links to `/categories/graduation`.
+- Direct `/start?template=graduation-water-bottle-label` and `/start?template=graduation-round-juice-sticker` now show product-first copy, exact custom size, and continue straight to the editor after upload.
+- Added server-side safety in `POST /api/projects/start`: Graduation without a selected product returns `400` and does not create a generic suggestions project.
+- Kept `/categories/graduation` and `/templates/graduation` available as explicit product browsing pages with clearer labels and CTAs.
+- Updated catalog size formatting to show width x height for custom label products.
+- Added tests proving generic recommendations exclude Graduation and direct Graduation product starts still work.
+
+### Browser QA Notes
+
+- `/start`: Graduation is not in the generic choices; separate Graduation product callout is visible; no horizontal overflow.
+- `/categories/graduation`: hero says Graduation labels and stickers; product cards show Water Bottle Label and Round Juice Sticker with working create CTAs; no horizontal overflow.
+- `/templates/graduation`: still shows exactly the two Graduation products/templates with product-specific CTAs.
+- `/project/Aszb25F0npQn6EMGBrBrP0NoOwfHQwGRJDwgn8uuT08/suggestions`: generic suggestions do not show Graduation Water Bottle Label or Graduation Round Juice Sticker.
+- `/start?template=graduation-water-bottle-label`: shows "Selected product", `20 x 4 cm`, and product-first copy.
+
+### Commands Run
+
+- `npx prettier --write ...touched files...`: passed
+- `npm run typecheck`: passed
+- `npm run test`: passed, 18 files and 69 tests
+- `npm run lint`: passed
+- `npm run build`: passed
+- `npm run typecheck`: passed again after restoring `next-env.d.ts` generated-route churn
+- `git diff --check`: passed with line-ending warnings only
+
+Note:
+- An attempted `npm run test -- --runInBand` failed because Vitest does not support that Jest flag. The normal `npm run test` passed afterward.
+
+### Remaining Tasks
+
+- Future explicit-intent categories should use the same `recommendationVisibility: "explicit_intent"` metadata instead of adding category-specific recommender logic.
+- If admin UI later lets templates move between categories, expose recommendation visibility in admin controls so product-intent templates stay protected.
+- A project that somehow already exists in an explicit-intent category without a template now shows the product-first fallback, but choosing a product starts a new product flow rather than reusing those existing uploaded photos.
+
+### Continuation Instructions
+
+Next session should keep the recommender split intact: generic photo uploads must use `generic_photo_upload`; direct product/category/template starts can use `explicit_product_intent`. Do not add Graduation back to upload-first smart matching. Continue with admin visibility controls or reusing existing uploaded photos for product-first fallback only if requested.
+
 ## 2026-05-23 Continuation Pass
 
 ### Current Phase

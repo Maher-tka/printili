@@ -8,7 +8,9 @@ import {
   chooseTemplateForProject,
   type UploadedProjectPhoto
 } from "@/lib/project-store";
+import { getPublicTemplateBySlug } from "@/lib/public-template-store";
 import { getStorageProvider } from "@/lib/storage";
+import { categoryLabels, isExplicitIntentCategory } from "@/lib/templates";
 import type { TemplateCategoryId } from "@/types/templates";
 
 const maxPhotoSizeBytes = 12 * 1024 * 1024;
@@ -30,13 +32,27 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const category = formData.get("category");
   const templateSlug = formData.get("templateSlug");
+  const cleanTemplateSlug = typeof templateSlug === "string" ? templateSlug.trim() : "";
   const files = formData.getAll("photos").filter((value): value is File => value instanceof File);
 
-  const fieldError = validateFields(category, files);
+  const fieldError = validateFields(category, files, cleanTemplateSlug);
 
   if (fieldError) {
     return NextResponse.json({ message: fieldError }, { status: 400 });
   }
+
+  const selectedTemplate = cleanTemplateSlug
+    ? await getPublicTemplateBySlug(cleanTemplateSlug)
+    : null;
+
+  if (cleanTemplateSlug && !selectedTemplate) {
+    return NextResponse.json(
+      { message: "We could not find that product. Please choose it again." },
+      { status: 400 }
+    );
+  }
+
+  const projectCategory = selectedTemplate?.categoryId ?? (category as TemplateCategoryId);
 
   const guestToken = createGuestToken();
   const projectCode = createProjectCode();
@@ -77,19 +93,18 @@ export async function POST(request: Request) {
     }
 
     const project = await createGuestProject({
-      category: category as TemplateCategoryId,
+      category: projectCategory,
       sheetSize: "custom",
       guestToken,
       projectCode,
       photos
     });
-    const selectedProject =
-      typeof templateSlug === "string" && templateSlug.trim()
-        ? await chooseTemplateForProject({
-            guestToken: project.guestToken,
-            templateSlug: templateSlug.trim()
-          })
-        : null;
+    const selectedProject = cleanTemplateSlug
+      ? await chooseTemplateForProject({
+          guestToken: project.guestToken,
+          templateSlug: cleanTemplateSlug
+        })
+      : null;
 
     return NextResponse.json({
       projectCode: project.projectCode,
@@ -114,9 +129,13 @@ export async function POST(request: Request) {
   }
 }
 
-function validateFields(category: FormDataEntryValue | null, files: File[]) {
+function validateFields(category: FormDataEntryValue | null, files: File[], templateSlug: string) {
   if (typeof category !== "string" || !allowedCategories.includes(category as TemplateCategoryId)) {
     return "Choose a gift category before uploading your photos.";
+  }
+
+  if (!templateSlug && isExplicitIntentCategory(category as TemplateCategoryId)) {
+    return getProductFirstUploadMessage(category as TemplateCategoryId);
   }
 
   if (files.length === 0) {
@@ -128,6 +147,14 @@ function validateFields(category: FormDataEntryValue | null, files: File[]) {
   }
 
   return null;
+}
+
+function getProductFirstUploadMessage(category: TemplateCategoryId) {
+  if (category === "graduation") {
+    return "Choose a Graduation product before uploading.";
+  }
+
+  return `Choose an exact ${categoryLabels[category].toLowerCase()} product before uploading.`;
 }
 
 function validatePhoto(file: File) {

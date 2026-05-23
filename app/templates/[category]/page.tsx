@@ -56,6 +56,7 @@ export default async function TemplateCategoryPage({ params, searchParams }: Cat
     categoryId: category.id
   };
   const templates = await getFilteredPublicTemplates(filters);
+  const isGraduation = category.id === "graduation";
 
   return (
     <section className="page-shell printili-public-page" aria-labelledby="category-heading">
@@ -63,8 +64,16 @@ export default async function TemplateCategoryPage({ params, searchParams }: Cat
         eyebrow="Printable templates"
         image={categoryHeroImage(category.id)}
         imageAlt={category.imageAlt}
-        intro={category.seoDescription}
-        primaryAction={{ href: "/start", label: "Start creating" }}
+        intro={
+          isGraduation
+            ? "Choose the exact Graduation label or sticker first so Printili uses the correct size and shape."
+            : category.seoDescription
+        }
+        primaryAction={
+          isGraduation
+            ? { href: "/categories/graduation", label: "Choose Graduation product" }
+            : { href: "/start", label: "Start creating" }
+        }
         secondaryAction={{ href: "/templates", label: "All products" }}
         titleId="category-heading"
         title={getCategoryPageTitle(category.id, category.name)}

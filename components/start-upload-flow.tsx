@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { categories } from "@/data/seed-templates";
+import { getGenericRecommendationCategories } from "@/lib/templates";
 import type { TemplateCategoryId } from "@/types/templates";
 
 const maxPhotoSizeBytes = 12 * 1024 * 1024;
@@ -15,17 +16,25 @@ type StartUploadFlowProps = {
   initialTemplateSizeLabel?: string;
   initialTemplateMinPhotos?: number;
   initialTemplateMaxPhotos?: number;
+  initialTemplateIsExplicitIntent?: boolean;
 };
 
 export function StartUploadFlow({
-  initialCategory = "baby",
+  initialCategory = "custom",
   initialTemplateSlug,
   initialTemplateName,
   initialTemplateSizeLabel,
   initialTemplateMinPhotos,
-  initialTemplateMaxPhotos
+  initialTemplateMaxPhotos,
+  initialTemplateIsExplicitIntent = false
 }: StartUploadFlowProps) {
-  const [category, setCategory] = useState<TemplateCategoryId>(initialCategory);
+  const genericCategories = useMemo(() => getGenericRecommendationCategories(), []);
+  const initialGenericCategory = genericCategories.some((item) => item.id === initialCategory)
+    ? initialCategory
+    : "custom";
+  const [category, setCategory] = useState<TemplateCategoryId>(
+    initialTemplateSlug ? initialCategory : initialGenericCategory
+  );
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<UploadState>("idle");
   const [progress, setProgress] = useState(0);
@@ -163,7 +172,7 @@ export function StartUploadFlow({
     <form className="grid min-w-0 max-w-full gap-8 overflow-x-hidden" onSubmit={handleSubmit}>
       <div className="soft-card grid gap-3 p-4 sm:grid-cols-3">
         {[
-          ["1", initialTemplateName ? "Design chosen" : "Choose category"],
+          ["1", initialTemplateName ? "Product chosen" : "Choose gift type"],
           ["2", "Arrange photos"],
           ["3", "Create project"]
         ].map(([step, label], index) => (
@@ -187,43 +196,68 @@ export function StartUploadFlow({
           <div>
             <p className="text-sm font-semibold text-rose">Step 1</p>
             <h2 id="category-step-heading" className="mt-1 text-2xl font-semibold">
-              {initialTemplateName ? "Confirm selected design" : "Choose a category"}
+              {initialTemplateName ? "Confirm selected product" : "What are you making?"}
             </h2>
           </div>
         </div>
 
         {initialTemplateName ? (
           <div className="mt-5 rounded-[8px] bg-cream p-4">
-            <p className="text-sm font-semibold text-charcoal">Selected design</p>
+            <p className="text-sm font-semibold text-charcoal">
+              {initialTemplateIsExplicitIntent ? "Selected product" : "Selected design"}
+            </p>
             <p className="mt-1 text-base font-semibold">{initialTemplateName}</p>
             {initialTemplateSizeLabel ? (
               <p className="mt-1 text-sm text-charcoal-soft">{initialTemplateSizeLabel}</p>
             ) : null}
+            {initialTemplateIsExplicitIntent ? (
+              <p className="mt-3 text-sm leading-6 text-charcoal-soft">
+                This product is selected by size and occasion. After upload, you will edit the name,
+                year, school or class, colors, message, and optional photo.
+              </p>
+            ) : null}
           </div>
         ) : (
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {categories.map((item) => (
-              <label
-                className="focus-within:ring-2 focus-within:ring-champagne rounded-[var(--radius-card)]"
-                key={item.id}
-              >
-                <input
-                  checked={category === item.id}
-                  className="peer sr-only"
-                  name="category"
-                  onChange={() => setCategory(item.id)}
-                  type="radio"
-                  value={item.id}
-                />
-                <span className="block min-h-24 rounded-[var(--radius-card)] border border-[rgb(199_163_95_/_0.28)] bg-paper p-4 transition peer-checked:border-rose peer-checked:bg-rose-soft/70">
-                  <span className="block text-base font-semibold text-charcoal">{item.name}</span>
-                  <span className="mt-2 block text-sm leading-5 text-charcoal-soft">
-                    {item.description}
+          <>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {genericCategories.map((item) => (
+                <label
+                  className="focus-within:ring-2 focus-within:ring-champagne rounded-[var(--radius-card)]"
+                  key={item.id}
+                >
+                  <input
+                    checked={category === item.id}
+                    className="peer sr-only"
+                    name="category"
+                    onChange={() => setCategory(item.id)}
+                    type="radio"
+                    value={item.id}
+                  />
+                  <span className="block min-h-24 rounded-[var(--radius-card)] border border-[rgb(199_163_95_/_0.28)] bg-paper p-4 transition peer-checked:border-rose peer-checked:bg-rose-soft/70">
+                    <span className="block text-base font-semibold text-charcoal">{item.name}</span>
+                    <span className="mt-2 block text-sm leading-5 text-charcoal-soft">
+                      {item.description}
+                    </span>
                   </span>
-                </span>
-              </label>
-            ))}
-          </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-[var(--radius-card)] border border-[rgb(216_115_85_/_0.22)] bg-rose-soft/50 p-4">
+              <p className="text-base font-semibold text-charcoal">
+                Making Graduation labels or stickers?
+              </p>
+              <p className="mt-2 text-sm leading-6 text-charcoal-soft">
+                Choose the product first so Printili uses the correct size and shape before upload.
+              </p>
+              <Link
+                className="focus-ring mt-4 inline-flex min-h-10 items-center justify-center rounded-full bg-charcoal px-4 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)]"
+                href="/categories/graduation"
+              >
+                View Graduation products
+              </Link>
+            </div>
+          </>
         )}
       </section>
 

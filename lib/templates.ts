@@ -1,16 +1,20 @@
 import { categories, featuredTemplates } from "@/data/seed-templates";
 import type {
   ProductType,
+  RecommendationVisibility,
   SheetSize,
   TemplateCategoryId,
   TemplateOrientation,
   TemplateSeed
 } from "@/types/templates";
 
+export type RecommendationContext = "generic_photo_upload" | "explicit_product_intent";
+
 type RecommendationInput = {
   photoCount: number;
   categoryId?: TemplateCategoryId;
   orientations?: TemplateOrientation[];
+  recommendationContext?: RecommendationContext;
 };
 
 export type TemplateFilterInput = {
@@ -80,6 +84,41 @@ export const categoryLabels: Record<TemplateCategoryId, string> = {
   graduation: "Graduation",
   custom: "Custom Gifts"
 };
+
+export function getCategoryRecommendationVisibility(
+  categoryId: TemplateCategoryId
+): RecommendationVisibility {
+  return getCategoryById(categoryId)?.recommendationVisibility ?? "generic";
+}
+
+export function getTemplateRecommendationVisibility(
+  template: Pick<TemplateSeed, "categoryId" | "recommendationVisibility">
+): RecommendationVisibility {
+  return (
+    template.recommendationVisibility ?? getCategoryRecommendationVisibility(template.categoryId)
+  );
+}
+
+export function shouldIncludeTemplateForRecommendation(
+  template: Pick<TemplateSeed, "categoryId" | "recommendationVisibility">,
+  recommendationContext: RecommendationContext = "generic_photo_upload"
+) {
+  if (recommendationContext === "explicit_product_intent") {
+    return true;
+  }
+
+  return getTemplateRecommendationVisibility(template) === "generic";
+}
+
+export function getGenericRecommendationCategories() {
+  return categories.filter(
+    (category) => getCategoryRecommendationVisibility(category.id) === "generic"
+  );
+}
+
+export function isExplicitIntentCategory(categoryId: TemplateCategoryId) {
+  return getCategoryRecommendationVisibility(categoryId) === "explicit_intent";
+}
 
 export function getTemplatesByCategory(categoryId: TemplateCategoryId) {
   return featuredTemplates.filter((template) => template.categoryId === categoryId);
@@ -199,11 +238,13 @@ export function getFilteredTemplates({
 export function recommendTemplates({
   photoCount,
   categoryId,
-  orientations = []
+  orientations = [],
+  recommendationContext = "generic_photo_upload"
 }: RecommendationInput) {
   const orientationSet = new Set(orientations);
 
   return featuredTemplates
+    .filter((template) => shouldIncludeTemplateForRecommendation(template, recommendationContext))
     .map((template) => {
       const categoryScore = categoryId && template.categoryId === categoryId ? 3 : 0;
       const countDistance =

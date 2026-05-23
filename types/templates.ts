@@ -26,6 +26,8 @@ export type TemplateSlotShape = "rect" | "circle" | "heart" | "silhouette" | "nu
 
 export type TemplateSlotRole = "hero" | "supporting" | "thumbnail" | "shape_tile";
 
+export type RecommendationVisibility = "generic" | "explicit_intent";
+
 export type TemplateSlotSeed = {
   id: string;
   x: number;
@@ -71,6 +73,7 @@ export type CategorySeed = {
   imageAlt: string;
   seoTitle: string;
   seoDescription: string;
+  recommendationVisibility?: RecommendationVisibility;
 };
 
 export type TemplateSeed = {
@@ -100,6 +103,7 @@ export type TemplateSeed = {
   description: string;
   priceLabel?: string;
   ctaLabel?: string;
+  recommendationVisibility?: RecommendationVisibility;
   bestFor: string[];
   printNotes: string[];
   previewImage: string;

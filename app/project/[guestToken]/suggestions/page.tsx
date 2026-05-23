@@ -3,13 +3,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RecommendationCard } from "@/components/recommendation-card";
 import { summarizePhotoAnalysis } from "@/lib/photo-analyzer";
+import { formatCatalogProductSize, getActiveCatalogProductsByCategorySlug } from "@/lib/catalog";
 import { getGuestProject } from "@/lib/project-store";
 import { getAllPublicTemplates } from "@/lib/public-template-store";
 import {
   countPhotoOrientations,
   recommendTemplates as recommendProjectTemplates
 } from "@/lib/template-recommender";
-import { categoryLabels, formatPhotoCountRange } from "@/lib/templates";
+import {
+  categoryLabels,
+  formatPhotoCountRange,
+  getCategoryById,
+  isExplicitIntentCategory
+} from "@/lib/templates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,6 +42,10 @@ export default async function ProjectSuggestionsPage({ params }: ProjectSuggesti
     notFound();
   }
 
+  if (!project.chosenTemplateSlug && isExplicitIntentCategory(project.category)) {
+    return <ExplicitIntentProductChoice guestToken={guestToken} project={project} />;
+  }
+
   const analysisSummary = summarizePhotoAnalysis(project.photos);
   const templates = await getAllPublicTemplates();
   const recommendations = recommendProjectTemplates({
@@ -43,7 +53,8 @@ export default async function ProjectSuggestionsPage({ params }: ProjectSuggesti
     photoCount: project.photos.length,
     orientationCounts: countPhotoOrientations(project.photos),
     templates,
-    limit: 6
+    limit: 6,
+    recommendationContext: "generic_photo_upload"
   });
   const friendlyWarningCount = analysisSummary.qualityWarnings.length;
   const canUseCount = recommendations.filter((recommendation) => recommendation.canUse).length;
@@ -190,6 +201,92 @@ export default async function ProjectSuggestionsPage({ params }: ProjectSuggesti
           </div>
         </div>
       </details>
+    </section>
+  );
+}
+
+function ExplicitIntentProductChoice({
+  guestToken,
+  project
+}: {
+  guestToken: string;
+  project: NonNullable<Awaited<ReturnType<typeof getGuestProject>>>;
+}) {
+  const category = getCategoryById(project.category);
+  const products = category ? getActiveCatalogProductsByCategorySlug(category.slug) : [];
+  const categoryName = categoryLabels[project.category];
+  const isGraduation = project.category === "graduation";
+
+  return (
+    <section className="page-shell py-12 sm:py-16" aria-labelledby="product-first-heading">
+      <div className="max-w-3xl">
+        <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">
+          Project {project.projectCode}
+        </p>
+        <h1
+          id="product-first-heading"
+          className="mt-3 font-display text-4xl leading-tight sm:text-6xl"
+        >
+          Choose your {isGraduation ? "Graduation product" : `${categoryName} product`} first
+        </h1>
+        <p className="mt-5 text-base leading-7 text-charcoal-soft">
+          {isGraduation
+            ? "Graduation labels and stickers are selected by product, not by photo matching."
+            : "This category needs an exact product size before the editor can prepare your design."}{" "}
+          Choose the product first so Printili uses the correct size and shape.
+        </p>
+      </div>
+
+      {products.length > 0 ? (
+        <div className="mt-8 grid gap-5 sm:grid-cols-2">
+          {products.map((product) => (
+            <Link
+              className="soft-card focus-ring block p-6 transition hover:-translate-y-1 hover:shadow-soft"
+              href={`/start?template=${product.slug}`}
+              key={product.id}
+            >
+              <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">
+                {formatCatalogProductSize(product)}
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold text-charcoal">{product.name}</h2>
+              <p className="mt-3 text-sm leading-6 text-charcoal-soft">{product.description}</p>
+              <span className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper">
+                {product.shape === "circle" ? "Create round sticker" : "Create bottle label"}
+              </span>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="soft-card mt-8 p-7">
+          <h2 className="text-xl font-semibold">Choose the exact product page.</h2>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-charcoal-soft">
+            This product type is not matched from photos automatically.
+          </p>
+          {category ? (
+            <Link
+              className="focus-ring mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)]"
+              href={`/categories/${category.slug}`}
+            >
+              View products
+            </Link>
+          ) : null}
+        </div>
+      )}
+
+      <div className="mt-8 flex flex-wrap gap-3">
+        <Link
+          className="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-5 text-sm font-semibold text-charcoal transition hover:bg-cream"
+          href="/start"
+        >
+          Start a photo gift instead
+        </Link>
+        <Link
+          className="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-5 text-sm font-semibold text-charcoal transition hover:bg-cream"
+          href={`/project/${guestToken}/add-photos`}
+        >
+          Add more photos to this project
+        </Link>
+      </div>
     </section>
   );
 }

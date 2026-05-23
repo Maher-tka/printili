@@ -1,4 +1,8 @@
 import { PhotoOrientation } from "@/lib/generated/prisma/client";
+import {
+  type RecommendationContext,
+  shouldIncludeTemplateForRecommendation
+} from "@/lib/templates";
 import type { ProductType, SheetSize, TemplateCategoryId, TemplateSeed } from "@/types/templates";
 
 export type TemplateRecommendationInput = {
@@ -13,6 +17,7 @@ export type TemplateRecommendationInput = {
   productType?: ProductType;
   templates: TemplateSeed[];
   limit?: number;
+  recommendationContext?: RecommendationContext;
 };
 
 export type TemplateRecommendation = {
@@ -42,9 +47,11 @@ export function recommendTemplates({
   orientationCounts,
   productType,
   templates,
-  limit = 6
+  limit = 6,
+  recommendationContext = "generic_photo_upload"
 }: TemplateRecommendationInput): TemplateRecommendation[] {
   return templates
+    .filter((template) => shouldIncludeTemplateForRecommendation(template, recommendationContext))
     .map((template) =>
       scoreTemplate({
         template,

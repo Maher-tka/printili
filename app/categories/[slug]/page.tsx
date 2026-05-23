@@ -48,6 +48,7 @@ export default async function CatalogCategoryPage({ params }: CatalogCategoryPag
 
   const products = getActiveCatalogProductsByCategorySlug(category.slug);
   const primaryProduct = products[0];
+  const isGraduation = category.slug === "graduation";
 
   return (
     <section className="page-shell printili-public-page" aria-labelledby="catalog-category-heading">
@@ -58,21 +59,32 @@ export default async function CatalogCategoryPage({ params }: CatalogCategoryPag
         intro={category.description}
         primaryAction={
           primaryProduct
-            ? { href: `/start?template=${primaryProduct.slug}`, label: "Start with photos" }
+            ? {
+                href: `/start?template=${primaryProduct.slug}`,
+                label: isGraduation ? "Create bottle label" : "Start with photos"
+              }
             : undefined
         }
-        secondaryAction={{ href: `/templates/${category.slug}`, label: "See matching designs" }}
+        secondaryAction={{
+          href: `/templates/${category.slug}`,
+          label: isGraduation ? "See Graduation products" : "See matching designs"
+        }}
         titleId="catalog-category-heading"
-        title={category.name}
+        title={isGraduation ? "Graduation labels and stickers" : category.name}
       />
 
       <section className="printili-catalog-products" aria-labelledby="catalog-products-heading">
         <div>
           <p>Products</p>
-          <h2 id="catalog-products-heading">Choose a {category.name.toLowerCase()} printable.</h2>
+          <h2 id="catalog-products-heading">
+            {isGraduation
+              ? "Choose your bottle label or round sticker."
+              : `Choose a ${category.name.toLowerCase()} printable.`}
+          </h2>
           <span>
-            Start with a bottle label or round juice sticker. You can add name, year, school or
-            class, color theme, message, and optional photo in the editor.
+            {isGraduation
+              ? "Graduation is selected by product, not by automatic photo matching. You can add name, year, school or class, color theme, message, and optional photo in the editor."
+              : "Choose a product, upload photos, and preview before print."}
           </span>
         </div>
 

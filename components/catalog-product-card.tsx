@@ -35,7 +35,11 @@ export function CatalogProductCard({ product }: CatalogProductCardProps) {
           className="focus-ring mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)]"
           href={`/start?template=${product.slug}`}
         >
-          Start this product
+          {product.slug === "graduation-water-bottle-label"
+            ? "Create bottle label"
+            : product.slug === "graduation-round-juice-sticker"
+              ? "Create round sticker"
+              : "Start this product"}
         </Link>
       </CardContent>
     </Card>

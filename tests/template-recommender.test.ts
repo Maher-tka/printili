@@ -39,7 +39,27 @@ describe("template recommender", () => {
     expect(recommendations.some((item) => item.label === "Needs More Photos")).toBe(true);
   });
 
-  it("uses customer-friendly reasons for usable graduation products", () => {
+  it("excludes graduation products from generic photo upload recommendations", () => {
+    const recommendations = recommendTemplates({
+      category: "custom",
+      photoCount: 1,
+      orientationCounts: {
+        portrait: 1,
+        landscape: 0,
+        square: 0
+      },
+      templates: featuredTemplates
+    });
+
+    expect(recommendations.map((recommendation) => recommendation.template.slug)).not.toContain(
+      "graduation-water-bottle-label"
+    );
+    expect(recommendations.map((recommendation) => recommendation.template.slug)).not.toContain(
+      "graduation-round-juice-sticker"
+    );
+  });
+
+  it("excludes explicit-intent templates even when the photo count is a perfect fit", () => {
     const recommendations = recommendTemplates({
       category: "graduation",
       photoCount: 1,
@@ -49,6 +69,24 @@ describe("template recommender", () => {
         square: 0
       },
       templates: featuredTemplates
+    });
+
+    expect(recommendations.map((recommendation) => recommendation.template.slug)).not.toContain(
+      "graduation-water-bottle-label"
+    );
+  });
+
+  it("allows graduation products when the customer has explicit product intent", () => {
+    const recommendations = recommendTemplates({
+      category: "graduation",
+      photoCount: 1,
+      orientationCounts: {
+        portrait: 1,
+        landscape: 0,
+        square: 0
+      },
+      templates: featuredTemplates,
+      recommendationContext: "explicit_product_intent"
     });
 
     const bottleLabel = recommendations.find(
