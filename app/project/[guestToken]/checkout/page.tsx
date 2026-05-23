@@ -2,7 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MontagePreview } from "@/components/montage-preview";
-import { calculateOrderPrice, formatMoney } from "@/lib/pricing";
+import {
+  calculateOrderPrice,
+  formatMoney,
+  formatProductOptionPrice,
+  getDefaultDeliveryCity,
+  getDefaultProductOption,
+  getProductOptionsForTemplate,
+  pricingConfig
+} from "@/lib/pricing";
 import { getGuestProject } from "@/lib/project-store";
 import {
   getPublicTemplateBySlug,
@@ -65,16 +73,19 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
   const missingRequiredPhotos = layout.slots
     .slice(0, Math.min(template.minPhotos, layout.slots.length))
     .filter((slot) => !filledSlotIds.has(slot.id));
+  const productOptions = getProductOptionsForTemplate(template);
+  const defaultProductOption = getDefaultProductOption(template);
+  const defaultDeliveryCity = getDefaultDeliveryCity();
   const startingPrice = calculateOrderPrice({
     template,
     quantity: 1,
-    productOption: "print_only",
+    productOption: defaultProductOption.id,
     addFrame: false,
     giftWrap: false,
     premiumPaper: false,
     finish: "matte",
     urgentOrder: false,
-    city: ""
+    city: defaultDeliveryCity.id
   });
 
   return (
@@ -91,8 +102,9 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
             Delivery details
           </h1>
           <p className="mt-4 text-base leading-7 text-charcoal-soft">
-            Payment is cash on delivery. Final price may be confirmed on WhatsApp before printing
-            depending on size, frame, and delivery.
+            Confirm the details for your printed order. Payment stays cash on delivery, and the
+            order total is calculated from the product option, quantity, finish, and delivery city
+            you choose below.
           </p>
           <p className="mt-3 text-sm font-semibold text-charcoal">
             Selected size: {formatTemplateSize(template)}
@@ -108,7 +120,25 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
               <Field label="WhatsApp number" name="whatsapp" required />
             </div>
             <Field label="Delivery address" name="deliveryAddress" required />
-            <Field label="City/area" name="city" required />
+            <label className="grid gap-2 text-sm font-semibold text-charcoal">
+              Delivery city
+              <select
+                className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
+                defaultValue={defaultDeliveryCity.id}
+                name="city"
+                required
+              >
+                {pricingConfig.deliveryCities.map((city) => (
+                  <option key={city.id} value={city.id}>
+                    {city.label} - {formatMoney(city.fee)}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs font-normal leading-5 text-charcoal-soft">
+                The delivery fee is saved with your order. If your exact area needs a courier
+                adjustment, we confirm it on WhatsApp before printing.
+              </span>
+            </label>
             <label className="grid gap-2 text-sm font-semibold text-charcoal">
               Delivery notes
               <textarea
@@ -128,54 +158,73 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
                   type="number"
                 />
               </label>
-              <label className="grid gap-2 text-sm font-semibold text-charcoal">
-                Product option
-                <select
-                  className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
-                  name="productOption"
-                >
-                  <option value="print_only">Print only</option>
-                  <option value="frame_placeholder">Framed print</option>
-                  <option value="gift_wrap_placeholder">Gift-ready package</option>
-                </select>
-              </label>
             </div>
+
+            <fieldset className="grid gap-3 rounded-[8px] border border-[rgb(199_163_95_/_0.28)] p-4">
+              <legend className="px-2 text-sm font-semibold text-charcoal">Product option</legend>
+              <div className="grid gap-3">
+                {productOptions.map((option) => (
+                  <label
+                    key={option.id}
+                    className="grid cursor-pointer grid-cols-[auto_1fr] gap-3 rounded-[8px] bg-cream px-3 py-3 text-sm text-charcoal-soft"
+                  >
+                    <input
+                      className="mt-1 size-4 accent-rose"
+                      defaultChecked={option.id === defaultProductOption.id}
+                      name="productOption"
+                      type="radio"
+                      value={option.id}
+                    />
+                    <span>
+                      <span className="flex flex-wrap items-center justify-between gap-2 font-semibold text-charcoal">
+                        <span>{option.label}</span>
+                        <span>{formatProductOptionPrice(option)}</span>
+                      </span>
+                      <span className="mt-1 block leading-5">{option.description}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
             <div className="grid gap-3 text-sm text-charcoal-soft sm:grid-cols-2">
               {[
-                ["addFrame", "Add frame"],
-                ["giftWrap", "Gift wrapping"],
-                ["premiumPaper", "Premium paper"],
-                ["urgentOrder", "Urgent order option"]
-              ].map(([name, label]) => (
+                [
+                  "premiumPaper",
+                  "Premium photo paper",
+                  `+${formatMoney(pricingConfig.addOns.premiumPaper)} / item`
+                ],
+                [
+                  "urgentOrder",
+                  "Priority production",
+                  `+${formatMoney(pricingConfig.addOns.urgent)} / order`
+                ]
+              ].map(([name, label, price]) => (
                 <label
                   key={name}
                   className="flex items-center gap-3 rounded-[8px] bg-cream px-3 py-3"
                 >
                   <input className="size-4 accent-rose" name={name} type="checkbox" value="true" />
-                  <span>{label}</span>
+                  <span className="flex flex-1 items-center justify-between gap-3">
+                    <span>{label}</span>
+                    <span className="font-semibold text-charcoal">{price}</span>
+                  </span>
                 </label>
               ))}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4">
               <label className="grid gap-2 text-sm font-semibold text-charcoal">
                 Finish
                 <select
                   className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
                   name="finish"
                 >
-                  <option value="matte">Matte</option>
-                  <option value="glossy">Glossy</option>
+                  <option value="matte">Matte finish - included</option>
+                  <option value="glossy">
+                    Glossy finish - +{formatMoney(pricingConfig.addOns.glossyFinish)} / item
+                  </option>
                 </select>
-              </label>
-              <label className="grid gap-2 text-sm font-semibold text-charcoal">
-                Delivery fee
-                <input
-                  className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal"
-                  readOnly
-                  value="Calculated by city"
-                />
               </label>
             </div>
 
@@ -226,7 +275,12 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
             </div>
 
             <div className="rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper p-4">
-              <p className="text-sm font-semibold text-charcoal">Starting price</p>
+              <p className="text-sm font-semibold text-charcoal">Order estimate</p>
+              <p className="mt-1 text-xs leading-5 text-charcoal-soft">
+                Shown for 1 item, {defaultProductOption.label.toLowerCase()}, matte finish, and{" "}
+                {defaultDeliveryCity.label} delivery. Your submitted total is recalculated from the
+                exact choices in this form.
+              </p>
               <div className="mt-3 grid gap-2 text-sm text-charcoal-soft">
                 {startingPrice.lineItems.map((item) => (
                   <div className="flex justify-between gap-3" key={item.label}>
@@ -236,11 +290,12 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
                 ))}
               </div>
               <p className="mt-3 flex justify-between gap-3 border-t border-[rgb(199_163_95_/_0.25)] pt-3 text-sm font-bold text-charcoal">
-                <span>Total from</span>
+                <span>Estimated cash on delivery</span>
                 <span>{formatMoney(startingPrice.total)}</span>
               </p>
               <p className="mt-2 text-xs leading-5 text-charcoal-soft">
-                Final total updates after quantity, options, and delivery city are submitted.
+                No online payment is collected. We confirm the print details on WhatsApp before
+                production if anything needs review.
               </p>
             </div>
 

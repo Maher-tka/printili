@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateOrderPrice, getDeliveryFee } from "@/lib/pricing";
+import { calculateOrderPrice, getDeliveryFee, normalizeProductOption } from "@/lib/pricing";
 import type { TemplateSeed } from "@/types/templates";
 
 const a4Template = {
@@ -12,6 +12,11 @@ const customStickerTemplate = {
   productType: "sticker",
   productKind: "graduation_round_sticker"
 } satisfies Pick<TemplateSeed, "sheetSize" | "productType" | "productKind">;
+
+const cutSheetTemplate = {
+  sheetSize: "A4",
+  productType: "cut_sheet"
+} satisfies Pick<TemplateSeed, "sheetSize" | "productType">;
 
 describe("pricing", () => {
   it("calculates a clear poster order total", () => {
@@ -46,12 +51,38 @@ describe("pricing", () => {
     });
 
     expect(price.subtotal).toBe(9);
-    expect(price.deliveryFee).toBe(10);
-    expect(price.total).toBe(19);
+    expect(price.deliveryFee).toBe(9);
+    expect(price.total).toBe(18);
+  });
+
+  it("adds concrete finishing options without placeholder ids", () => {
+    const price = calculateOrderPrice({
+      template: cutSheetTemplate,
+      quantity: 1,
+      productOption: "cut_and_pack",
+      addFrame: false,
+      giftWrap: false,
+      premiumPaper: false,
+      finish: "matte",
+      urgentOrder: false,
+      city: "ben_arous"
+    });
+
+    expect(price.subtotal).toBe(24);
+    expect(price.deliveryFee).toBe(7);
+    expect(price.total).toBe(31);
+  });
+
+  it("maps old placeholder options to launch options", () => {
+    expect(normalizeProductOption("frame_placeholder", a4Template)).toBe("framed_print");
+    expect(normalizeProductOption("gift_wrap_placeholder", cutSheetTemplate)).toBe(
+      "gift_ready_pack"
+    );
   });
 
   it("normalizes configured delivery cities", () => {
     expect(getDeliveryFee("  ARIANA ")).toBe(7);
+    expect(getDeliveryFee("Ben Arous")).toBe(7);
     expect(getDeliveryFee("Unknown city")).toBe(10);
   });
 });

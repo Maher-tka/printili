@@ -31,7 +31,10 @@ const wideSlot: TemplateSlotSeed = {
   preferredOrientation: "landscape"
 };
 
-function photo(widthPx: number, heightPx: number): Pick<UploadedProjectPhoto, "aspectRatio" | "heightPx" | "widthPx"> {
+function photo(
+  widthPx: number,
+  heightPx: number
+): Pick<UploadedProjectPhoto, "aspectRatio" | "heightPx" | "widthPx"> {
   return {
     widthPx,
     heightPx,
@@ -122,6 +125,39 @@ describe("smart photo fit", () => {
 
     expect(placement.focusX).toBe(62);
     expect(placement.focusY).toBe(35);
+  });
+
+  it("uses blur fill instead of aggressive crop when detected faces are near an edge", () => {
+    const placement = calculateSmartPhotoPlacement({
+      faceFocus: {
+        faceCount: 1,
+        focusX: 86,
+        focusY: 36
+      },
+      photo: photo(900, 1600),
+      slot: wideSlot,
+      templateSlug: "poster"
+    });
+
+    expect(placement.fitMode).toBe("contain_blur");
+    expect(placement.blurBackground).toBe(true);
+  });
+
+  it("falls back safely when a slot disallows blur fill and smart crop", () => {
+    const lockedSlot: TemplateSlotSeed = {
+      ...portraitSlot,
+      allowBlurFill: false,
+      allowSmartCrop: false
+    };
+
+    const placement = calculateSmartPhotoPlacement({
+      photo: photo(4000, 700),
+      slot: lockedSlot,
+      templateSlug: "poster"
+    });
+
+    expect(placement.fitMode).toBe("cover");
+    expect(placement.blurBackground).toBe(false);
   });
 
   it("repairs old unsafe polaroid rotations saved by the earlier ratio-only rule", () => {

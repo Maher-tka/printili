@@ -39,6 +39,7 @@ type CustomerEditorProps = {
 };
 
 type SaveState = "saved" | "saving" | "error";
+type EditorPanel = "photos" | "adjust" | "text" | "more";
 
 type EditorHistorySnapshot = {
   placements: ProjectPlacementSummary[];
@@ -52,23 +53,23 @@ const fitModeOptions: Array<{
 }> = [
   {
     value: "smart_crop",
-    label: "Smart",
-    description: "Auto-rotate, protect faces when possible, and pick the cleanest crop."
+    label: "Smart Fix",
+    description: "Protects faces and fixes the crop automatically."
   },
   {
     value: "cover",
-    label: "Cover",
-    description: "Fill the frame with manual crop controls."
+    label: "Fill frame",
+    description: "Fill the photo spot edge to edge."
   },
   {
     value: "contain",
-    label: "Contain",
-    description: "Show the full photo without a blurred background."
+    label: "Fit full photo",
+    description: "Show the whole photo without cropping."
   },
   {
     value: "contain_blur",
-    label: "Blur Fill",
-    description: "Show the full photo over a soft blurred copy."
+    label: "Blur background",
+    description: "Show the full photo with a soft background fill."
   }
 ];
 
@@ -81,7 +82,14 @@ const quickEmojis = [
   { label: "smile", value: "\u{1F60A}" }
 ];
 
-const editorTopTools = ["Templates", "Photos", "Text", "Emoji", "Layout", "Effects"];
+type QuickEmoji = (typeof quickEmojis)[number];
+
+const editorPanelTabs: Array<{ value: EditorPanel; label: string }> = [
+  { value: "photos", label: "Photos" },
+  { value: "adjust", label: "Adjust" },
+  { value: "text", label: "Text" },
+  { value: "more", label: "More" }
+];
 
 export function CustomerEditor({
   project,
@@ -106,6 +114,7 @@ export function CustomerEditor({
   const [placements, setPlacements] = useState<ProjectPlacementSummary[]>(initialPlacements);
   const [textValues, setTextValues] = useState<Record<string, string>>(initialTextValues);
   const [selectedSlotId, setSelectedSlotId] = useState(layout.slots[0]?.id ?? "");
+  const [activePanel, setActivePanel] = useState<EditorPanel>("photos");
   const [placementSaveState, setPlacementSaveState] = useState<SaveState>("saved");
   const [textSaveState, setTextSaveState] = useState<SaveState>("saved");
   const [historyPast, setHistoryPast] = useState<EditorHistorySnapshot[]>([]);
@@ -749,10 +758,11 @@ export function CustomerEditor({
               id="editor-heading"
               className="mt-2 font-display text-3xl leading-tight sm:text-5xl"
             >
-              {adminMode ? "Admin design tools" : "Adjust your design"}
+              {adminMode ? "Admin design check" : "Make it print-ready"}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-charcoal-soft sm:text-base">
-              All uploaded photos stay saved in this project, including extras. Print size:{" "}
+              Drag a photo to move it, use Smart Fix when faces look cut, and preview before
+              ordering. Your changes save automatically. Print size:{" "}
               <span className="font-semibold text-charcoal">
                 {formatSheetSizeCm(template.sheetSize, template.orientation)}
               </span>
@@ -782,33 +792,16 @@ export function CustomerEditor({
           <span className="rounded-full bg-paper/10 px-3 py-1 text-xs font-semibold text-paper">
             {formatSheetSizeCm(template.sheetSize, template.orientation)}
           </span>
-          {adminMode ? (
-            <>
-              <span className="hidden text-xs font-semibold text-paper/65 sm:inline">
-                New project
-              </span>
-              <span className="hidden h-6 w-px bg-paper/15 sm:inline" aria-hidden="true" />
-              <div className="flex flex-1 flex-wrap justify-center gap-1.5">
-                {editorTopTools.map((tool, index) => (
-                  <button
-                    aria-pressed={index === 1}
-                    className={cn("editor-command-bar__button", index === 1 && "is-active")}
-                    key={tool}
-                    type="button"
-                  >
-                    {tool}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-1 flex-wrap items-center justify-center gap-2 text-xs font-semibold text-paper/78">
-              <span className="rounded-full bg-paper/10 px-3 py-1">
-                {project.photos.length} photos
-              </span>
-              <span className="rounded-full bg-paper/10 px-3 py-1">{unusedPhotoCount} unused</span>
-            </div>
-          )}
+          <div className="flex flex-1 flex-wrap items-center justify-center gap-2 text-xs font-semibold text-paper/78">
+            {adminMode ? (
+              <span className="rounded-full bg-paper/10 px-3 py-1">Admin production view</span>
+            ) : null}
+            <span className="rounded-full bg-paper/10 px-3 py-1">{project.photos.length} photos</span>
+            <span className="rounded-full bg-paper/10 px-3 py-1">{unusedPhotoCount} unused</span>
+            <span className="rounded-full bg-paper/10 px-3 py-1">
+              {filledSlotCount}/{layout.slots.length} spots filled
+            </span>
+          </div>
           <SaveBadge state={combinedSaveState} />
         </div>
 
@@ -842,6 +835,7 @@ export function CustomerEditor({
               saveState={combinedSaveState}
               filledSlotCount={filledSlotCount}
               unusedPhotoCount={unusedPhotoCount}
+              activePanel={activePanel}
               adminMode={adminMode}
               selectedPlacement={selectedPlacement}
               selectedSlotId={selectedSlotId}
@@ -851,6 +845,7 @@ export function CustomerEditor({
               canRedo={canRedo}
               canUndo={canUndo}
               onFitModeChange={changeFitMode}
+              onPanelChange={setActivePanel}
               onClearSlotPhoto={clearSelectedSlotPhoto}
               onPhotoChange={changeSelectedPhoto}
               onRedo={redoEditorChange}
@@ -885,6 +880,7 @@ export function CustomerEditor({
           saveState={combinedSaveState}
           filledSlotCount={filledSlotCount}
           unusedPhotoCount={unusedPhotoCount}
+          activePanel={activePanel}
           adminMode={adminMode}
           selectedPlacement={selectedPlacement}
           selectedSlotId={selectedSlotId}
@@ -894,6 +890,7 @@ export function CustomerEditor({
           canRedo={canRedo}
           canUndo={canUndo}
           onFitModeChange={changeFitMode}
+          onPanelChange={setActivePanel}
           onClearSlotPhoto={clearSelectedSlotPhoto}
           onPhotoChange={changeSelectedPhoto}
           onRedo={redoEditorChange}
@@ -911,15 +908,13 @@ export function CustomerEditor({
           onSlotSelect={setSelectedSlotId}
           onZoomChange={(zoom) => updateSelectedPlacement({ zoom })}
         />
-        <div className="mt-3">
-          <SaveDesignPanel project={project} />
-        </div>
       </div>
     </section>
   );
 }
 
 function EditorControls({
+  activePanel,
   selectedPlacement,
   selectedSlotId,
   selectedSlotIndex,
@@ -938,6 +933,7 @@ function EditorControls({
   onRotationChange,
   onNudge,
   onFitModeChange,
+  onPanelChange,
   onPhotoChange,
   onReset,
   onResetSmart,
@@ -954,6 +950,7 @@ function EditorControls({
   onRedo,
   onUndo
 }: {
+  activePanel: EditorPanel;
   selectedPlacement?: ProjectPlacementSummary;
   selectedSlotId: string;
   selectedSlotIndex: number;
@@ -972,6 +969,7 @@ function EditorControls({
   onRotationChange: (rotation: number) => void;
   onNudge: (axis: "offsetX" | "offsetY", amount: number) => void;
   onFitModeChange: (fitMode: ImplementedFitMode) => void;
+  onPanelChange: (panel: EditorPanel) => void;
   onPhotoChange: (photoId: string) => void;
   onReset: () => void;
   onResetSmart: () => void;
@@ -1007,49 +1005,35 @@ function EditorControls({
     ? findPhotoById(photos, selectedPlacement.photoId)
     : undefined;
   const isPolaroidTemplate = templateSlug === POLAROID_TEMPLATE_SLUG;
+  const nextBestAction = getNextBestAction({
+    filledSlotCount,
+    saveState,
+    selectedPlacement: Boolean(selectedPlacement),
+    selectedSlotIndex,
+    totalSlots: layout.slots.length
+  });
+  const hasTextTools = Boolean(
+    layout.textFields.length > 0 || (isPolaroidTemplate && selectedSlot)
+  );
 
   return (
     <div className="editor-inspector min-w-0 overflow-x-hidden p-4 lg:p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-rose">
-            {selectedPlacement ? `Photo spot ${selectedSlotIndex + 1}` : "Photo spots"}
+            {selectedPlacement ? `Editing spot ${selectedSlotIndex + 1}` : "Choose a photo spot"}
           </p>
           <p className="mt-1 text-sm font-semibold">
-            {selectedPlacement ? (selectedPhoto?.fileName ?? "Photo crop") : "Choose a filled slot"}
+            {selectedPlacement ? (selectedPhoto?.fileName ?? "Photo crop") : "Tap a spot to begin"}
           </p>
         </div>
         <SaveBadge state={saveState} />
       </div>
 
-      <div className="mt-4 grid gap-4">
-        <div className="grid grid-cols-3 gap-2">
-          <button
-            className="focus-ring min-h-10 rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-xs font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={!canUndo}
-            onClick={onUndo}
-            type="button"
-          >
-            Undo
-          </button>
-          <button
-            className="focus-ring min-h-10 rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-xs font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={!canRedo}
-            onClick={onRedo}
-            type="button"
-          >
-            Redo
-          </button>
-          <button
-            className="focus-ring min-h-10 rounded-full border border-rose/35 bg-paper px-3 text-xs font-semibold text-rose transition hover:bg-rose-soft disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={!selectedPlacement}
-            onClick={onClearSlotPhoto}
-            type="button"
-          >
-            Clear spot
-          </button>
-        </div>
+      <NextBestActionCard action={nextBestAction} />
+      <EditorPanelTabs activePanel={activePanel} hasTextTools={hasTextTools} onPanelChange={onPanelChange} />
 
+      <div className="mt-4 grid gap-4">
         <SlotQuickPicker
           filledSlotCount={filledSlotCount}
           layout={layout}
@@ -1059,28 +1043,275 @@ function EditorControls({
           onSlotSelect={onSlotSelect}
         />
 
-        {selectedPlacement ? (
-          <PhotoLibraryCarousel
-            photos={photos}
+        {activePanel === "photos" ? (
+          <PhotoPanel
             photoUsageById={photoUsageById}
-            selectedPhotoId={selectedPlacement.photoId}
+            photos={photos}
+            selectedPhotoId={selectedPlacement?.photoId}
             selectedSlotIndex={selectedSlotIndex}
             unusedPhotoCount={unusedPhotoCount}
+            onClearSlotPhoto={onClearSlotPhoto}
             onPhotoChange={onPhotoChange}
           />
         ) : null}
 
-        {adminMode ? <DesignToolsPanel /> : null}
+        {activePanel === "adjust" ? (
+          <AdjustPanel
+            canCrop={canCrop}
+            selectedPlacement={selectedPlacement}
+            selectedSlot={selectedSlot}
+            zoomPercent={zoomPercent}
+            onBlurBackgroundChange={onBlurBackgroundChange}
+            onFitModeChange={onFitModeChange}
+            onResetSmart={onResetSmart}
+            onZoomChange={onZoomChange}
+          />
+        ) : null}
 
-        {isPolaroidTemplate && selectedSlot ? (
-          <PolaroidCaptionControls
+        {activePanel === "text" ? (
+          <TextPanel
+            isPolaroidTemplate={isPolaroidTemplate}
+            layout={layout}
+            quickEmojis={quickEmojis}
+            selectedSlot={selectedSlot}
             selectedSlotIndex={selectedSlotIndex}
-            slotId={selectedSlot.id}
             textValues={textValues}
+            onEmojiInsert={onEmojiInsert}
+            onTextChange={onTextChange}
             onTextStyleChange={onTextStyleChange}
             onTextValueChange={onTextValueChange}
           />
         ) : null}
+
+        {activePanel === "more" ? (
+          <MorePanel
+            adminMode={adminMode}
+            availableFitOptions={availableFitOptions}
+            canCrop={canCrop}
+            canRedo={canRedo}
+            canUndo={canUndo}
+            rotationDegrees={rotationDegrees}
+            selectedPlacement={selectedPlacement}
+            showCutGuides={showCutGuides}
+            onClearSlotPhoto={onClearSlotPhoto}
+            onFitModeChange={onFitModeChange}
+            onNudge={onNudge}
+            onRedo={onRedo}
+            onReset={onReset}
+            onRotationChange={onRotationChange}
+            onToggleCutGuides={onToggleCutGuides}
+            onUndo={onUndo}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function NextBestActionCard({
+  action
+}: {
+  action: {
+    title: string;
+    body: string;
+    tone: "good" | "warn" | "neutral";
+  };
+}) {
+  return (
+    <div
+      className={cn(
+        "mt-4 rounded-[8px] border px-3 py-3 text-sm leading-6",
+        action.tone === "warn"
+          ? "border-rose/25 bg-rose-soft/35 text-charcoal"
+          : action.tone === "good"
+            ? "border-[rgb(199_163_95_/_0.28)] bg-cream text-charcoal"
+            : "border-[rgb(199_163_95_/_0.22)] bg-paper text-charcoal"
+      )}
+    >
+      <p className="font-semibold">{action.title}</p>
+      <p className="mt-1 text-xs leading-5 text-charcoal-soft">{action.body}</p>
+    </div>
+  );
+}
+
+function EditorPanelTabs({
+  activePanel,
+  hasTextTools,
+  onPanelChange
+}: {
+  activePanel: EditorPanel;
+  hasTextTools: boolean;
+  onPanelChange: (panel: EditorPanel) => void;
+}) {
+  return (
+    <div
+      aria-label="Editor tools"
+      className="mt-4 grid grid-cols-4 gap-1 rounded-full bg-cream p-1"
+      role="tablist"
+    >
+      {editorPanelTabs.map((tab) => {
+        const isActive = activePanel === tab.value;
+        const isDisabled = tab.value === "text" && !hasTextTools;
+
+        return (
+          <button
+            aria-controls={`editor-panel-${tab.value}`}
+            aria-disabled={isDisabled}
+            aria-selected={isActive}
+            className={cn(
+              "focus-ring min-h-10 rounded-full px-2 text-xs font-semibold transition",
+              isActive
+                ? "bg-charcoal text-paper shadow-[0_8px_18px_rgb(45_41_38_/_0.16)]"
+                : "text-charcoal-soft hover:bg-paper hover:text-charcoal",
+              isDisabled && "cursor-not-allowed opacity-45"
+            )}
+            key={tab.value}
+            onClick={() => {
+              if (!isDisabled) {
+                onPanelChange(tab.value);
+              }
+            }}
+            role="tab"
+            type="button"
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PhotoPanel({
+  photoUsageById,
+  photos,
+  selectedPhotoId,
+  selectedSlotIndex,
+  unusedPhotoCount,
+  onClearSlotPhoto,
+  onPhotoChange
+}: {
+  photoUsageById: Map<string, number[]>;
+  photos: GuestProjectSummary["photos"];
+  selectedPhotoId?: string;
+  selectedSlotIndex: number;
+  unusedPhotoCount: number;
+  onClearSlotPhoto: () => void;
+  onPhotoChange: (photoId: string) => void;
+}) {
+  return (
+    <section aria-labelledby="editor-panel-photos-title" id="editor-panel-photos" role="tabpanel">
+      <div className="rounded-[8px] border border-[rgb(199_163_95_/_0.22)] bg-paper p-3">
+        <p
+          className="text-xs font-semibold uppercase tracking-[0.12em] text-rose"
+          id="editor-panel-photos-title"
+        >
+          Photos
+        </p>
+        <p className="mt-2 text-sm leading-6 text-charcoal-soft">
+          Pick a photo to replace the selected spot. Unused photos are highlighted so they are easy
+          to find.
+        </p>
+      </div>
+
+      {selectedPhotoId ? (
+        <div className="mt-3 grid gap-3">
+          <PhotoLibraryCarousel
+            photos={photos}
+            photoUsageById={photoUsageById}
+            selectedPhotoId={selectedPhotoId}
+            selectedSlotIndex={selectedSlotIndex}
+            unusedPhotoCount={unusedPhotoCount}
+            onPhotoChange={onPhotoChange}
+          />
+          <button
+            className="focus-ring min-h-11 rounded-full border border-rose/35 bg-paper px-4 text-sm font-semibold text-rose transition hover:bg-rose-soft"
+            onClick={onClearSlotPhoto}
+            type="button"
+          >
+            Remove photo from this spot
+          </button>
+        </div>
+      ) : (
+        <div className="mt-3 rounded-[8px] border border-[rgb(199_163_95_/_0.22)] bg-cream p-3 text-sm leading-6 text-charcoal-soft">
+          Tap a filled photo spot on the preview, then choose the replacement photo here.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AdjustPanel({
+  canCrop,
+  selectedPlacement,
+  selectedSlot,
+  zoomPercent,
+  onBlurBackgroundChange,
+  onFitModeChange,
+  onResetSmart,
+  onZoomChange
+}: {
+  canCrop: boolean;
+  selectedPlacement?: ProjectPlacementSummary;
+  selectedSlot?: TemplateEditorLayout["slots"][number];
+  zoomPercent: number;
+  onBlurBackgroundChange: (enabled: boolean) => void;
+  onFitModeChange: (fitMode: ImplementedFitMode) => void;
+  onResetSmart: () => void;
+  onZoomChange: (zoom: number) => void;
+}) {
+  return (
+    <section aria-labelledby="editor-panel-adjust-title" id="editor-panel-adjust" role="tabpanel">
+      <div className="rounded-[8px] border border-[rgb(199_163_95_/_0.22)] bg-paper p-3">
+        <p
+          className="text-xs font-semibold uppercase tracking-[0.12em] text-rose"
+          id="editor-panel-adjust-title"
+        >
+          Adjust photo
+        </p>
+        <p className="mt-2 text-sm leading-6 text-charcoal-soft">
+          Drag the photo inside the frame, or use Smart Fix if a face or important detail is cut.
+        </p>
+      </div>
+
+      <div className="mt-3 grid gap-3">
+        <button
+          className="focus-ring min-h-12 rounded-full bg-charcoal px-4 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!selectedPlacement || selectedSlot?.allowSmartCrop === false}
+          onClick={onResetSmart}
+          type="button"
+        >
+          Smart Fix
+        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            className="focus-ring min-h-11 rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-3 text-sm font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!selectedPlacement}
+            onClick={() => onFitModeChange("contain")}
+            type="button"
+          >
+            Fit full photo
+          </button>
+          <button
+            className="focus-ring min-h-11 rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-3 text-sm font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!selectedPlacement}
+            onClick={() => onFitModeChange("cover")}
+            type="button"
+          >
+            Fill frame
+          </button>
+        </div>
+
+        <label className="flex min-h-11 items-center justify-between gap-3 rounded-[8px] border border-[rgb(199_163_95_/_0.25)] bg-paper px-3 text-sm font-semibold text-charcoal">
+          Blur background
+          <input
+            checked={selectedPlacement?.blurBackground ?? false}
+            className="size-4 accent-rose"
+            disabled={!selectedPlacement || selectedSlot?.allowBlurFill === false}
+            onChange={(event) => onBlurBackgroundChange(event.target.checked)}
+            type="checkbox"
+          />
+        </label>
 
         <label className="grid gap-2 text-sm font-semibold text-charcoal">
           <span className="flex items-center justify-between gap-3">
@@ -1100,7 +1331,169 @@ function EditorControls({
             value={selectedPlacement?.zoom ?? 1}
           />
         </label>
+      </div>
+    </section>
+  );
+}
 
+function TextPanel({
+  isPolaroidTemplate,
+  layout,
+  quickEmojis,
+  selectedSlot,
+  selectedSlotIndex,
+  textValues,
+  onEmojiInsert,
+  onTextChange,
+  onTextStyleChange,
+  onTextValueChange
+}: {
+  isPolaroidTemplate: boolean;
+  layout: TemplateEditorLayout;
+  quickEmojis: QuickEmoji[];
+  selectedSlot?: TemplateEditorLayout["slots"][number];
+  selectedSlotIndex: number;
+  textValues: Record<string, string>;
+  onEmojiInsert: (field: TemplateTextFieldSeed, emoji: string) => void;
+  onTextChange: (field: TemplateTextFieldSeed, value: string) => void;
+  onTextStyleChange: (scope: string, property: TextStyleProperty, value: string) => void;
+  onTextValueChange: (fieldKey: string, value: string, maxLength?: number) => void;
+}) {
+  const hasPolaroidCaption = isPolaroidTemplate && selectedSlot;
+
+  if (!hasPolaroidCaption && layout.textFields.length === 0) {
+    return (
+      <section id="editor-panel-text" role="tabpanel">
+        <div className="rounded-[8px] border border-[rgb(199_163_95_/_0.22)] bg-cream p-3 text-sm leading-6 text-charcoal-soft">
+          This template does not need text. You can keep editing photos or preview your design.
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-labelledby="editor-panel-text-title" id="editor-panel-text" role="tabpanel">
+      <div className="rounded-[8px] border border-[rgb(199_163_95_/_0.22)] bg-paper p-3">
+        <p
+          className="text-xs font-semibold uppercase tracking-[0.12em] text-rose"
+          id="editor-panel-text-title"
+        >
+          Text
+        </p>
+        <p className="mt-2 text-sm leading-6 text-charcoal-soft">
+          Add a short message, choose a handwriting style, and keep the text readable for print.
+        </p>
+      </div>
+
+      <div className="mt-3 grid gap-3">
+        {hasPolaroidCaption ? (
+          <PolaroidCaptionControls
+            selectedSlotIndex={selectedSlotIndex}
+            slotId={selectedSlot.id}
+            textValues={textValues}
+            onTextStyleChange={onTextStyleChange}
+            onTextValueChange={onTextValueChange}
+          />
+        ) : null}
+
+        {layout.textFields.length > 0 ? (
+          <TemplateTextFieldControls
+            layout={layout}
+            quickEmojis={quickEmojis}
+            textValues={textValues}
+            onEmojiInsert={onEmojiInsert}
+            onTextChange={onTextChange}
+            onTextStyleChange={onTextStyleChange}
+          />
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function MorePanel({
+  adminMode,
+  availableFitOptions,
+  canCrop,
+  canRedo,
+  canUndo,
+  rotationDegrees,
+  selectedPlacement,
+  showCutGuides,
+  onClearSlotPhoto,
+  onFitModeChange,
+  onNudge,
+  onRedo,
+  onReset,
+  onRotationChange,
+  onToggleCutGuides,
+  onUndo
+}: {
+  adminMode: boolean;
+  availableFitOptions: typeof fitModeOptions;
+  canCrop: boolean;
+  canRedo: boolean;
+  canUndo: boolean;
+  rotationDegrees: number;
+  selectedPlacement?: ProjectPlacementSummary;
+  showCutGuides: boolean;
+  onClearSlotPhoto: () => void;
+  onFitModeChange: (fitMode: ImplementedFitMode) => void;
+  onNudge: (axis: "offsetX" | "offsetY", amount: number) => void;
+  onRedo: () => void;
+  onReset: () => void;
+  onRotationChange: (rotation: number) => void;
+  onToggleCutGuides: (showCutGuides: boolean) => void;
+  onUndo: () => void;
+}) {
+  return (
+    <section aria-labelledby="editor-panel-more-title" id="editor-panel-more" role="tabpanel">
+      <div className="rounded-[8px] border border-[rgb(199_163_95_/_0.22)] bg-paper p-3">
+        <p
+          className="text-xs font-semibold uppercase tracking-[0.12em] text-rose"
+          id="editor-panel-more-title"
+        >
+          More controls
+        </p>
+        <p className="mt-2 text-sm leading-6 text-charcoal-soft">
+          Fine-tune only when needed. Most customers can finish with Photos, Adjust, and Text.
+        </p>
+      </div>
+
+      {adminMode ? (
+        <div className="mt-3 rounded-[8px] border border-charcoal/10 bg-charcoal p-3 text-sm leading-6 text-paper">
+          Admin-only production view. Use these controls for final print checks and cleanup.
+        </div>
+      ) : null}
+
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <button
+          className="focus-ring min-h-10 rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-xs font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-45"
+          disabled={!canUndo}
+          onClick={onUndo}
+          type="button"
+        >
+          Undo
+        </button>
+        <button
+          className="focus-ring min-h-10 rounded-full border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-xs font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-45"
+          disabled={!canRedo}
+          onClick={onRedo}
+          type="button"
+        >
+          Redo
+        </button>
+        <button
+          className="focus-ring min-h-10 rounded-full border border-rose/35 bg-paper px-3 text-xs font-semibold text-rose transition hover:bg-rose-soft disabled:cursor-not-allowed disabled:opacity-45"
+          disabled={!selectedPlacement}
+          onClick={onClearSlotPhoto}
+          type="button"
+        >
+          Clear
+        </button>
+      </div>
+
+      <div className="mt-3 grid gap-3">
         <label className="grid gap-2 text-sm font-semibold text-charcoal">
           <span className="flex items-center justify-between gap-3">
             <span>Rotate</span>
@@ -1120,29 +1513,25 @@ function EditorControls({
           />
         </label>
 
-        <label className="flex min-h-11 items-center justify-between gap-3 rounded-[8px] border border-[rgb(199_163_95_/_0.25)] bg-paper px-3 text-sm font-semibold text-charcoal">
-          Show cut guides
-          <input
-            checked={showCutGuides}
-            className="size-4 accent-rose"
-            onChange={(event) => onToggleCutGuides(event.target.checked)}
-            type="checkbox"
-          />
-        </label>
-
-        <label className="flex min-h-11 items-center justify-between gap-3 rounded-[8px] border border-[rgb(199_163_95_/_0.25)] bg-paper px-3 text-sm font-semibold text-charcoal">
-          Blur background
-          <input
-            checked={selectedPlacement?.blurBackground ?? false}
-            className="size-4 accent-rose"
-            disabled={!selectedPlacement || selectedSlot?.allowBlurFill === false}
-            onChange={(event) => onBlurBackgroundChange(event.target.checked)}
-            type="checkbox"
-          />
-        </label>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <div />
+          <IconButton disabled={!canCrop} label="Move up" onClick={() => onNudge("offsetY", -3)}>
+            &#8593;
+          </IconButton>
+          <div />
+          <IconButton disabled={!canCrop} label="Move left" onClick={() => onNudge("offsetX", -3)}>
+            &#8592;
+          </IconButton>
+          <IconButton disabled={!canCrop} label="Move down" onClick={() => onNudge("offsetY", 3)}>
+            &#8595;
+          </IconButton>
+          <IconButton disabled={!canCrop} label="Move right" onClick={() => onNudge("offsetX", 3)}>
+            &#8594;
+          </IconButton>
+        </div>
 
         <div className="grid gap-2 text-sm font-semibold text-charcoal">
-          <span>Fit</span>
+          <span>Exact fit mode</span>
           <div className="grid gap-2" role="group" aria-label="Photo fit mode">
             {availableFitOptions.map((option) => {
               const isActive = selectedPlacement?.fitMode === option.value;
@@ -1169,100 +1558,91 @@ function EditorControls({
               );
             })}
           </div>
-          {selectedSlot?.allowBlurFill === false ? (
-            <span className="text-xs font-normal leading-5 text-charcoal-soft">
-              Blur-fill is hidden for this print-cut spot.
-            </span>
-          ) : null}
         </div>
 
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          <div />
-          <IconButton disabled={!canCrop} label="Move up" onClick={() => onNudge("offsetY", -3)}>
-            &#8593;
-          </IconButton>
-          <div />
-          <IconButton disabled={!canCrop} label="Move left" onClick={() => onNudge("offsetX", -3)}>
-            &#8592;
-          </IconButton>
-          <IconButton disabled={!canCrop} label="Move down" onClick={() => onNudge("offsetY", 3)}>
-            &#8595;
-          </IconButton>
-          <IconButton disabled={!canCrop} label="Move right" onClick={() => onNudge("offsetX", 3)}>
-            &#8594;
-          </IconButton>
-        </div>
+        <label className="flex min-h-11 items-center justify-between gap-3 rounded-[8px] border border-[rgb(199_163_95_/_0.25)] bg-paper px-3 text-sm font-semibold text-charcoal">
+          Show cut guides
+          <input
+            checked={showCutGuides}
+            className="size-4 accent-rose"
+            onChange={(event) => onToggleCutGuides(event.target.checked)}
+            type="checkbox"
+          />
+        </label>
 
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            className="focus-ring min-h-11 rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-4 text-sm font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!selectedPlacement}
-            onClick={onReset}
-            type="button"
-          >
-            Reset manual
-          </button>
-          <button
-            className="focus-ring min-h-11 rounded-full bg-charcoal px-4 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)] disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!selectedPlacement}
-            onClick={onResetSmart}
-            type="button"
-          >
-            Reset smart
-          </button>
-        </div>
+        <button
+          className="focus-ring min-h-11 rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-4 text-sm font-semibold text-charcoal transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!selectedPlacement}
+          onClick={onReset}
+          type="button"
+        >
+          Reset manual edits
+        </button>
       </div>
+    </section>
+  );
+}
 
-      {layout.textFields.length > 0 ? (
-        <div className="mt-5 border-t border-[rgb(199_163_95_/_0.25)] pt-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-rose">Text</p>
-          <div className="mt-3 grid gap-3">
-            {layout.textFields.map((field) => (
-              <label key={field.id} className="grid gap-2 text-sm font-semibold text-charcoal">
-                {field.label}
-                {field.maxLength && field.maxLength > 90 ? (
-                  <textarea
-                    className="focus-ring min-h-20 resize-none rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 py-2 text-sm font-normal text-charcoal"
-                    maxLength={field.maxLength}
-                    onChange={(event) => onTextChange(field, event.target.value)}
-                    placeholder={field.placeholder}
-                    value={textValues[field.key] ?? ""}
-                  />
-                ) : (
-                  <input
-                    className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal text-charcoal"
-                    maxLength={field.maxLength}
-                    onChange={(event) => onTextChange(field, event.target.value)}
-                    placeholder={field.placeholder}
-                    value={textValues[field.key] ?? ""}
-                  />
-                )}
-                <div className="flex flex-wrap gap-2" aria-label={`Emoji tools for ${field.label}`}>
-                  {quickEmojis.map((emoji) => (
-                    <button
-                      aria-label={`Add ${emoji.label}`}
-                      className="focus-ring flex size-9 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.35)] bg-cream text-sm transition hover:bg-rose-soft"
-                      key={emoji.label}
-                      onClick={() => onEmojiInsert(field, emoji.value)}
-                      type="button"
-                    >
-                      {emoji.value}
-                    </button>
-                  ))}
-                </div>
-                <TextStyleControls
-                  defaultFontSize={field.fontSize}
-                  maxFontSize={72}
-                  minFontSize={10}
-                  scope={field.key}
-                  textValues={textValues}
-                  onTextStyleChange={onTextStyleChange}
-                />
-              </label>
+function TemplateTextFieldControls({
+  layout,
+  quickEmojis,
+  textValues,
+  onEmojiInsert,
+  onTextChange,
+  onTextStyleChange
+}: {
+  layout: TemplateEditorLayout;
+  quickEmojis: QuickEmoji[];
+  textValues: Record<string, string>;
+  onEmojiInsert: (field: TemplateTextFieldSeed, emoji: string) => void;
+  onTextChange: (field: TemplateTextFieldSeed, value: string) => void;
+  onTextStyleChange: (scope: string, property: TextStyleProperty, value: string) => void;
+}) {
+  return (
+    <div className="grid gap-3">
+      {layout.textFields.map((field) => (
+        <label key={field.id} className="grid gap-2 text-sm font-semibold text-charcoal">
+          {field.label}
+          {field.maxLength && field.maxLength > 90 ? (
+            <textarea
+              className="focus-ring min-h-20 resize-none rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 py-2 text-sm font-normal text-charcoal"
+              maxLength={field.maxLength}
+              onChange={(event) => onTextChange(field, event.target.value)}
+              placeholder={field.placeholder}
+              value={textValues[field.key] ?? ""}
+            />
+          ) : (
+            <input
+              className="focus-ring min-h-11 rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper px-3 text-sm font-normal text-charcoal"
+              maxLength={field.maxLength}
+              onChange={(event) => onTextChange(field, event.target.value)}
+              placeholder={field.placeholder}
+              value={textValues[field.key] ?? ""}
+            />
+          )}
+          <div className="flex flex-wrap gap-2" aria-label={`Emoji tools for ${field.label}`}>
+            {quickEmojis.map((emoji) => (
+              <button
+                aria-label={`Add ${emoji.label}`}
+                className="focus-ring flex size-9 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.35)] bg-cream text-sm transition hover:bg-rose-soft"
+                key={emoji.label}
+                onClick={() => onEmojiInsert(field, emoji.value)}
+                type="button"
+              >
+                {emoji.value}
+              </button>
             ))}
           </div>
-        </div>
-      ) : null}
+          <TextStyleControls
+            defaultFontSize={field.fontSize}
+            maxFontSize={72}
+            minFontSize={10}
+            scope={field.key}
+            textValues={textValues}
+            onTextStyleChange={onTextStyleChange}
+          />
+        </label>
+      ))}
     </div>
   );
 }
@@ -1664,35 +2044,6 @@ function PhotoLibraryCarousel({
   );
 }
 
-function DesignToolsPanel() {
-  const tools = ["Select", "Text", "Emoji", "Move", "Align", "Layers"];
-
-  return (
-    <div className="rounded-[8px] border border-[rgb(199_163_95_/_0.18)] bg-charcoal p-3 text-paper">
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-rose-soft">
-        Design tools
-      </p>
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        {tools.map((tool, index) => (
-          <button
-            aria-pressed={index === 0}
-            className={cn(
-              "focus-ring min-h-10 rounded-full px-3 text-xs font-semibold transition",
-              index === 0
-                ? "bg-paper text-charcoal"
-                : "border border-paper/15 bg-paper/8 text-paper hover:bg-paper/14"
-            )}
-            key={tool}
-            type="button"
-          >
-            {tool}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function SaveDesignPanel({ project }: { project: GuestProjectSummary }) {
   const magicPath = `/project/${project.guestToken}/editor`;
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -1831,6 +2182,50 @@ function getPhotoUsageLabel(slotNumbers: number[]) {
   }
 
   return `${slotNumbers.length} spots`;
+}
+
+function getNextBestAction({
+  filledSlotCount,
+  saveState,
+  selectedPlacement,
+  selectedSlotIndex,
+  totalSlots
+}: {
+  filledSlotCount: number;
+  saveState: SaveState;
+  selectedPlacement: boolean;
+  selectedSlotIndex: number;
+  totalSlots: number;
+}) {
+  if (saveState === "error") {
+    return {
+      title: "Keep this page open",
+      body: "We could not save the latest change yet. Your editor will keep retrying before checkout.",
+      tone: "warn" as const
+    };
+  }
+
+  if (saveState === "saving") {
+    return {
+      title: "Saving your change...",
+      body: "Wait a moment before previewing or submitting so the print file stays current.",
+      tone: "neutral" as const
+    };
+  }
+
+  if (!selectedPlacement) {
+    return {
+      title: "Tap a photo spot to edit it",
+      body: `${filledSlotCount}/${totalSlots} spots are filled. Choose any spot on the preview or the strip below.`,
+      tone: "neutral" as const
+    };
+  }
+
+  return {
+    title: `Editing spot ${selectedSlotIndex + 1}`,
+    body: "Drag the photo to move it. Use Smart Fix if faces, hair, or important details look cut.",
+    tone: "good" as const
+  };
 }
 
 function IconButton({

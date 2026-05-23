@@ -38,11 +38,11 @@ export default async function TemplatesPage({ searchParams }: TemplatesPageProps
           eyebrow="Products"
           image="/printili/memory-decorate-space-hq.webp"
           imageAlt="Framed collage held in warm light"
-          intro="Browse designs by occasion, product type, and photo count, then turn the right one into a finished printed keepsake."
-          primaryAction={{ href: "/start", label: "Start creating" }}
-          secondaryAction={{ href: "/occasions", label: "Shop by occasion" }}
+          intro="Choose what you want to print first. Then upload photos and Printili will guide you through the easy editor."
+          primaryAction={{ href: "/start", label: "Start with my photos" }}
+          secondaryAction={{ href: "/categories/graduation", label: "Graduation products" }}
           titleId="templates-heading"
-          title="Choose the frame before the photos become a gift."
+          title="Pick a product. We help with the design."
         />
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -66,7 +66,7 @@ export default async function TemplatesPage({ searchParams }: TemplatesPageProps
           <div className="printili-products-catalog__heading">
             <div>
               <p>Design library</p>
-              <h2 id="template-results-heading">Choose the keepsake style.</h2>
+              <h2 id="template-results-heading">Simple templates ready for your photos.</h2>
             </div>
             <span>
               {templates.length} matching design{templates.length === 1 ? "" : "s"}

@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createOrder, type SampleUseConsentId } from "@/lib/order-store";
-import { calculateOrderPrice } from "@/lib/pricing";
+import {
+  calculateOrderPrice,
+  getDeliveryCityLabel,
+  getProductOption,
+  normalizeDeliveryCity,
+  normalizeProductOption
+} from "@/lib/pricing";
 import { getGuestProject, updateProjectApproval } from "@/lib/project-store";
 import {
   getPublicTemplateBySlug,
@@ -42,9 +48,9 @@ export async function POST(request: Request, { params }: CheckoutRouteProps) {
   const clientName = getRequiredValue(formData, "clientName");
   const whatsapp = getRequiredValue(formData, "whatsapp");
   const deliveryAddress = getRequiredValue(formData, "deliveryAddress");
-  const city = getRequiredValue(formData, "city");
+  const cityInput = getRequiredValue(formData, "city");
 
-  if (!clientName || !whatsapp || !deliveryAddress || !city) {
+  if (!clientName || !whatsapp || !deliveryAddress || !cityInput) {
     return NextResponse.json(
       { message: "Please complete the required delivery fields." },
       { status: 400 }
@@ -53,12 +59,17 @@ export async function POST(request: Request, { params }: CheckoutRouteProps) {
 
   const sampleUseConsent = getValue(formData, "sampleUseConsent");
   const quantity = normalizeQuantity(getValue(formData, "quantity"));
-  const productOption = getValue(formData, "productOption") || "print_only";
-  const addFrame = formData.get("addFrame") === "true";
-  const giftWrap = formData.get("giftWrap") === "true";
+  const productOption = normalizeProductOption(getValue(formData, "productOption"), template);
+  const productOptionDetails = getProductOption(productOption, template);
+  const addFrame =
+    productOptionDetails.includedAddOns?.frame === true || formData.get("addFrame") === "true";
+  const giftWrap =
+    productOptionDetails.includedAddOns?.giftWrap === true || formData.get("giftWrap") === "true";
   const premiumPaper = formData.get("premiumPaper") === "true";
   const finish = getValue(formData, "finish") === "glossy" ? "glossy" : "matte";
   const urgentOrder = formData.get("urgentOrder") === "true";
+  const deliveryCityId = normalizeDeliveryCity(cityInput);
+  const city = getDeliveryCityLabel(deliveryCityId);
   const price = calculateOrderPrice({
     template,
     quantity,
@@ -68,7 +79,7 @@ export async function POST(request: Request, { params }: CheckoutRouteProps) {
     premiumPaper,
     finish,
     urgentOrder,
-    city
+    city: deliveryCityId
   });
   const order = await createOrder({
     guestToken,

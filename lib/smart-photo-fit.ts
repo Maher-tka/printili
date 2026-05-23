@@ -63,6 +63,7 @@ export function calculateSmartPhotoPlacement({
   const cropPressure = clamp(ratioDistance / Math.log(3), 0, 1);
   const faceSafeFocus = faceFocus ?? getFallbackFocus({ fittedPhotoAspectRatio, frameAspectRatio });
   const fitMode = chooseSmartFitMode({
+    faceFocus,
     ratioDistance,
     slot
   });
@@ -228,12 +229,22 @@ export async function detectFaceFocusFromImageUrl(imageUrl: string): Promise<Fac
 }
 
 function chooseSmartFitMode({
+  faceFocus,
   ratioDistance,
   slot
 }: {
+  faceFocus?: FaceFocusPoint | null;
   ratioDistance: number;
   slot: TemplateSlotSeed;
 }): ImplementedFitMode {
+  if (hasEdgeSensitiveFaceFocus(faceFocus) && ratioDistance > closeRatioThreshold) {
+    return slot.allowBlurFill === false
+      ? slot.allowSmartCrop === false
+        ? "cover"
+        : "smart_crop"
+      : "contain_blur";
+  }
+
   if (ratioDistance >= strongMismatchThreshold && slot.allowBlurFill !== false) {
     return "contain_blur";
   }
@@ -243,6 +254,20 @@ function chooseSmartFitMode({
   }
 
   return slot.allowSmartCrop === false ? "cover" : "smart_crop";
+}
+
+function hasEdgeSensitiveFaceFocus(faceFocus?: FaceFocusPoint | null) {
+  if (!faceFocus || (faceFocus.faceCount ?? 0) === 0) {
+    return false;
+  }
+
+  return (
+    faceFocus.focusX < 24 ||
+    faceFocus.focusX > 76 ||
+    faceFocus.focusY < 22 ||
+    faceFocus.focusY > 78 ||
+    (faceFocus.faceSpreadX ?? 0) > 58
+  );
 }
 
 function getFallbackFocus({
