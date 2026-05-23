@@ -132,6 +132,12 @@ export default async function ProjectSuggestionsPage({ params }: ProjectSuggesti
             <p className="mt-3 max-w-xl text-sm leading-6 text-charcoal-soft">
               Browse all products or upload a few more photos so we can suggest a better design.
             </p>
+            <Link
+              className="focus-ring mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)]"
+              href={`/project/${guestToken}/add-photos`}
+            >
+              Add more photos
+            </Link>
           </div>
         )}
       </section>

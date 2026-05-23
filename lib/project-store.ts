@@ -100,6 +100,11 @@ type CreateGuestProjectInput = {
   projectCode?: string;
 };
 
+type AddProjectPhotosInput = {
+  guestToken: string;
+  photos: UploadedProjectPhoto[];
+};
+
 type LocalProjectRecord = GuestProjectSummary;
 
 const localStorePath = path.join(process.cwd(), ".local-storage", "projects.json");
@@ -255,6 +260,67 @@ export async function getGuestProject(guestToken: string): Promise<GuestProjectS
   const project = store.find((project) => project.guestToken === guestToken);
 
   return project ? withLocalDefaults(project) : null;
+}
+
+export async function addPhotosToGuestProject({ guestToken, photos }: AddProjectPhotosInput) {
+  if (photos.length === 0) {
+    return getGuestProject(guestToken);
+  }
+
+  if (hasConfiguredDatabaseUrl()) {
+    try {
+      const prisma = await getPrismaClient();
+      const project = await prisma.project.findUnique({
+        where: {
+          guestToken
+        },
+        select: {
+          id: true
+        }
+      });
+
+      if (!project) {
+        return null;
+      }
+
+      await prisma.projectPhoto.createMany({
+        data: photos.map((photo) => ({
+          projectId: project.id,
+          fileName: photo.fileName,
+          originalUrl: photo.originalUrl,
+          widthPx: photo.widthPx,
+          heightPx: photo.heightPx,
+          orientation: photo.orientation,
+          aspectRatio: photo.aspectRatio,
+          fileSizeBytes: photo.fileSizeBytes,
+          estimatedPrintQuality: photo.estimatedPrintQuality,
+          brightnessScore: photo.brightnessScore,
+          sharpnessScore: photo.sharpnessScore,
+          qualityWarnings: photo.qualityWarnings
+        }))
+      });
+
+      return getGuestProject(guestToken);
+    } catch (error) {
+      handleDatabaseFailure("Database project photo update failed", error);
+    }
+  }
+
+  return updateLocalProject(guestToken, (project) => {
+    const existingPhotos = project.photos.map((photo, index) => ({
+      ...photo,
+      id: photo.id ?? `local-photo-${index + 1}`
+    }));
+    const nextPhotos = photos.map((photo, index) => ({
+      ...photo,
+      id: photo.id ?? `local-photo-${existingPhotos.length + index + 1}`
+    }));
+
+    return {
+      ...project,
+      photos: [...existingPhotos, ...nextPhotos]
+    };
+  });
 }
 
 export async function chooseTemplateForProject({

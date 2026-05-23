@@ -1,5 +1,89 @@
 # Printili Codex Progress
 
+## 2026-05-23 Continuation Pass
+
+### Current Phase
+
+Mobile editor QA, project-level add-more-photos flow, and final route verification.
+
+### Files Inspected
+
+- `CODEX_PROGRESS.md`
+- `DESIGN.md`
+- `git status` / current diff
+- `components/customer-editor.tsx`
+- `components/start-upload-flow.tsx`
+- `components/recommendation-card.tsx`
+- `app/project/[guestToken]/suggestions/page.tsx`
+- `app/project/[guestToken]/preview/page.tsx`
+- `app/project/[guestToken]/checkout/page.tsx`
+- `app/templates/[category]/page.tsx`
+- `app/categories/[slug]/page.tsx`
+- `app/api/projects/start/route.ts`
+- `lib/project-store.ts`
+- `lib/storage.ts`
+- `lib/photo-analyzer.ts`
+- `app/globals.css`
+- `prisma/schema.prisma`
+
+### Files Changed
+
+- `app/api/projects/[guestToken]/photos/route.ts`
+- `app/project/[guestToken]/add-photos/page.tsx`
+- `components/project-add-photos-flow.tsx`
+- `components/recommendation-card.tsx`
+- `components/customer-editor.tsx`
+- `app/project/[guestToken]/suggestions/page.tsx`
+- `app/globals.css`
+- `lib/project-store.ts`
+
+Ignored local QA fixture note:
+- `.local-storage/projects.json` had an extra final `]` and could not be parsed, which made all local private project links show "Project unavailable". I repaired that ignored local fixture so browser QA could test the real editor.
+
+### Completed Tasks
+
+- Added `addPhotosToGuestProject` so existing projects can append new photos in database or local fallback storage without replacing old uploads.
+- Added `POST /api/projects/[guestToken]/photos` with project lookup, expiry check, image validation, Sharp analysis, local storage save, and redirect back to suggestions or editor.
+- Added `/project/[guestToken]/add-photos`, a customer-facing add-more-photos page that shows existing saved photos, lets customers select more files, warns about duplicate filenames, keeps a carousel for new uploads, and returns to suggestions/editor.
+- Wired blocked recommendation cards from a disabled "Add more photos first" button into the real add-photos route.
+- Added an add-photos link inside the editor command bar and Photos panel.
+- Mobile editor visual fix: bottom sheet is capped at `45svh`, page bottom padding matches it, mobile inspector chrome is reduced, and the site header no longer creates horizontal overflow on phone widths.
+- Add-photos mobile overflow fix: existing-photo and new-photo carousels are contained inside their own horizontal scroll areas, not the whole page.
+- Split decision: did not split `components/customer-editor.tsx` in this pass because current panels still share autosave/history/selection state tightly. Splitting is safer after the add-photos flow and mobile sheet behavior are accepted.
+
+### Mobile QA Notes
+
+- Browser viewport used: `390 x 844`.
+- Editor route checked: `/project/IQn2XVGasI2bTmLy_Rmow_Z5sdutdNrtZ9TpIueXf04/editor`.
+- Bottom sheet now covers about `45%` of the viewport instead of `72%`.
+- Photos / Adjust / Text / More tabs remain visible with `40px` tap height.
+- Editor horizontal overflow: `false`.
+- After scrolling to the canvas area, about `304px` of canvas height remains visible above the bottom sheet.
+- Add-photos route checked: `/project/IQn2XVGasI2bTmLy_Rmow_Z5sdutdNrtZ9TpIueXf04/add-photos?needed=2&returnTo=editor`.
+- Add-photos page horizontal overflow: `false`.
+- Graduation smoke checks passed on `/templates/graduation` and `/categories/graduation`; both show Water Bottle Label and Round Juice Sticker.
+- Blocked recommendations route checked on `/project/Aszb25F0npQn6EMGBrBrP0NoOwfHQwGRJDwgn8uuT08/suggestions`; page shows the real add-more-photos action.
+
+### Commands Run
+
+- `npx prettier --write app/api/projects/[guestToken]/photos/route.ts app/project/[guestToken]/add-photos/page.tsx components/project-add-photos-flow.tsx components/recommendation-card.tsx components/customer-editor.tsx app/project/[guestToken]/suggestions/page.tsx app/globals.css lib/project-store.ts`: passed
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `npm run test`: passed, 17 files and 64 tests
+- `npm run build`: passed
+- `npm run typecheck`: passed again after removing generated `next-env.d.ts` churn from the diff
+
+### Remaining Tasks
+
+- Keep `components/customer-editor.tsx` split as the next safe refactor after the new add-photos flow is accepted.
+- Add direct editor support for uploading files from inside the Photos panel if users need fewer page transitions later.
+- Add tests around `addPhotosToGuestProject` if project-store testing is expanded.
+- Do a deeper checkout mobile form QA pass with real typing/submission after the next visual polish round.
+
+### Continuation Instructions
+
+Next session should start by checking the latest diff and testing the new `/project/[guestToken]/add-photos` route with a real small image upload. Do not redo the completed recommendation/template UX work. If splitting the editor, extract panels only after preserving current autosave/history behavior with focused tests or a very small refactor.
+
 ## Current Phase
 
 Template discovery, recommendations, start upload, preview, checkout, and Graduation polish.

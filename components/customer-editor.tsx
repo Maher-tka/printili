@@ -319,15 +319,15 @@ export function CustomerEditor({
 
       return Boolean(
         slot &&
-          photo &&
-          (isNeutralPlacement(placement) ||
-            shouldRepairUnsafePolaroidRotation({
-              photo,
-              placement,
-              slot,
-              templateSlug: template.slug
-            })) &&
-          !smartFitAppliedRef.current.has(key)
+        photo &&
+        (isNeutralPlacement(placement) ||
+          shouldRepairUnsafePolaroidRotation({
+            photo,
+            placement,
+            slot,
+            templateSlug: template.slug
+          })) &&
+        !smartFitAppliedRef.current.has(key)
       );
     });
 
@@ -337,7 +337,9 @@ export function CustomerEditor({
       };
     }
 
-    smartFitCandidates.forEach((placement) => smartFitAppliedRef.current.add(getSmartFitKey(placement)));
+    smartFitCandidates.forEach((placement) =>
+      smartFitAppliedRef.current.add(getSmartFitKey(placement))
+    );
     setPlacements((currentPlacements) =>
       currentPlacements.map((placement) => {
         if (!smartFitCandidates.some((candidate) => candidate.id === placement.id)) {
@@ -747,7 +749,10 @@ export function CustomerEditor({
   }
 
   return (
-    <section className="editor-workspace pb-44 lg:pb-12" aria-labelledby="editor-heading">
+    <section
+      className="editor-workspace pb-[calc(45svh+1rem)] lg:pb-12"
+      aria-labelledby="editor-heading"
+    >
       <div className="page-shell py-5 sm:py-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -796,11 +801,19 @@ export function CustomerEditor({
             {adminMode ? (
               <span className="rounded-full bg-paper/10 px-3 py-1">Admin production view</span>
             ) : null}
-            <span className="rounded-full bg-paper/10 px-3 py-1">{project.photos.length} photos</span>
+            <span className="rounded-full bg-paper/10 px-3 py-1">
+              {project.photos.length} photos
+            </span>
             <span className="rounded-full bg-paper/10 px-3 py-1">{unusedPhotoCount} unused</span>
             <span className="rounded-full bg-paper/10 px-3 py-1">
               {filledSlotCount}/{layout.slots.length} spots filled
             </span>
+            <Link
+              className="focus-ring rounded-full border border-paper/15 bg-paper/10 px-3 py-1 text-paper transition hover:bg-paper/18"
+              href={`/project/${project.guestToken}/add-photos?returnTo=editor`}
+            >
+              Add photos
+            </Link>
           </div>
           <SaveBadge state={combinedSaveState} />
         </div>
@@ -828,6 +841,7 @@ export function CustomerEditor({
           <aside className="hidden lg:block">
             <EditorControls
               layout={layout}
+              guestToken={project.guestToken}
               photos={project.photos}
               photoUsageById={photoUsageById}
               placements={placements}
@@ -870,9 +884,10 @@ export function CustomerEditor({
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 max-h-[72vh] overflow-y-auto overflow-x-hidden border-t border-[rgb(199_163_95_/_0.25)] bg-paper/95 px-4 py-3 shadow-[0_-18px_45px_rgb(45_41_38_/_0.12)] backdrop-blur lg:hidden">
+      <div className="editor-mobile-sheet fixed inset-x-0 bottom-0 z-40 max-h-[45svh] overflow-y-auto overflow-x-hidden border-t border-[rgb(199_163_95_/_0.25)] bg-paper/95 px-4 py-3 shadow-[0_-18px_45px_rgb(45_41_38_/_0.12)] backdrop-blur lg:hidden">
         <EditorControls
           layout={layout}
+          guestToken={project.guestToken}
           photos={project.photos}
           photoUsageById={photoUsageById}
           placements={placements}
@@ -920,6 +935,7 @@ function EditorControls({
   selectedSlotIndex,
   saveState,
   filledSlotCount,
+  guestToken,
   unusedPhotoCount,
   layout,
   photos,
@@ -956,6 +972,7 @@ function EditorControls({
   selectedSlotIndex: number;
   saveState: SaveState;
   filledSlotCount: number;
+  guestToken: string;
   unusedPhotoCount: number;
   layout: TemplateEditorLayout;
   photos: GuestProjectSummary["photos"];
@@ -1031,7 +1048,11 @@ function EditorControls({
       </div>
 
       <NextBestActionCard action={nextBestAction} />
-      <EditorPanelTabs activePanel={activePanel} hasTextTools={hasTextTools} onPanelChange={onPanelChange} />
+      <EditorPanelTabs
+        activePanel={activePanel}
+        hasTextTools={hasTextTools}
+        onPanelChange={onPanelChange}
+      />
 
       <div className="mt-4 grid gap-4">
         <SlotQuickPicker
@@ -1047,6 +1068,7 @@ function EditorControls({
           <PhotoPanel
             photoUsageById={photoUsageById}
             photos={photos}
+            guestToken={guestToken}
             selectedPhotoId={selectedPlacement?.photoId}
             selectedSlotIndex={selectedSlotIndex}
             unusedPhotoCount={unusedPhotoCount}
@@ -1185,6 +1207,7 @@ function EditorPanelTabs({
 function PhotoPanel({
   photoUsageById,
   photos,
+  guestToken,
   selectedPhotoId,
   selectedSlotIndex,
   unusedPhotoCount,
@@ -1193,6 +1216,7 @@ function PhotoPanel({
 }: {
   photoUsageById: Map<string, number[]>;
   photos: GuestProjectSummary["photos"];
+  guestToken: string;
   selectedPhotoId?: string;
   selectedSlotIndex: number;
   unusedPhotoCount: number;
@@ -1212,6 +1236,12 @@ function PhotoPanel({
           Pick a photo to replace the selected spot. Unused photos are highlighted so they are easy
           to find.
         </p>
+        <Link
+          className="focus-ring mt-3 inline-flex min-h-10 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.45)] bg-cream px-4 text-sm font-semibold text-charcoal transition hover:bg-rose-soft"
+          href={`/project/${guestToken}/add-photos?returnTo=editor`}
+        >
+          Add more photos
+        </Link>
       </div>
 
       {selectedPhotoId ? (
@@ -1670,9 +1700,7 @@ function PolaroidCaptionControls({
       className="rounded-[8px] border border-[rgb(199_163_95_/_0.25)] bg-paper p-3"
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-rose">
-          Caption text
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-rose">Caption text</p>
         <span className="rounded-full bg-cream px-2 py-1 text-xs font-semibold text-charcoal-soft">
           Spot {selectedSlotIndex + 1}
         </span>

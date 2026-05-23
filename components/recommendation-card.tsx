@@ -63,20 +63,28 @@ export function RecommendationCard({ recommendation, guestToken }: Recommendatio
           ))}
         </ul>
 
-        <form
-          action={`/api/projects/${guestToken}/template`}
-          className="mt-auto pt-6"
-          method="post"
-        >
-          <input name="templateSlug" type="hidden" value={template.slug} />
-          <button
-            className="focus-ring inline-flex min-h-11 w-full items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)] disabled:cursor-not-allowed disabled:bg-charcoal-soft"
-            disabled={!recommendation.canUse}
-            type="submit"
+        {recommendation.canUse ? (
+          <form
+            action={`/api/projects/${guestToken}/template`}
+            className="mt-auto pt-6"
+            method="post"
           >
-            {recommendation.canUse ? "Use this design" : "Add more photos first"}
-          </button>
-        </form>
+            <input name="templateSlug" type="hidden" value={template.slug} />
+            <button
+              className="focus-ring inline-flex min-h-11 w-full items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)]"
+              type="submit"
+            >
+              Use this design
+            </button>
+          </form>
+        ) : (
+          <Link
+            className="focus-ring mt-auto inline-flex min-h-11 w-full items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)]"
+            href={`/project/${guestToken}/add-photos?needed=${recommendation.missingPhotoCount}`}
+          >
+            Add more photos first
+          </Link>
+        )}
       </CardContent>
     </Card>
   );
