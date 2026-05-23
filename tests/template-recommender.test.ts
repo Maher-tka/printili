@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { featuredTemplates } from "../data/seed-templates";
-import { PhotoOrientation } from "../lib/generated/prisma/client";
-import { countPhotoOrientations, recommendTemplates } from "../lib/template-recommender";
+import { featuredTemplates } from "@/data/seed-templates";
+import { PhotoOrientation } from "@/lib/generated/prisma/client";
+import { countPhotoOrientations, recommendTemplates } from "@/lib/template-recommender";
 
 describe("template recommender", () => {
   it("scores exact cut-sheet matches highly", () => {
@@ -20,10 +20,10 @@ describe("template recommender", () => {
 
     expect(recommendation.template.slug).toBe("a4-9-polaroid-cut-sheet");
     expect(recommendation.matchScore).toBeGreaterThanOrEqual(90);
-    expect(recommendation.reasons).toContain("Matches the selected gift category.");
+    expect(recommendation.reasons).toContain("Made for this occasion.");
   });
 
-  it("keeps near-fit templates when they can adapt", () => {
+  it("keeps near-fit templates visible when they need only a few more photos", () => {
     const recommendations = recommendTemplates({
       category: "baby",
       sheetSize: "A4",
@@ -37,6 +37,49 @@ describe("template recommender", () => {
     });
 
     expect(recommendations.some((item) => item.label === "Needs More Photos")).toBe(true);
+  });
+
+  it("uses customer-friendly reasons for usable graduation products", () => {
+    const recommendations = recommendTemplates({
+      category: "graduation",
+      photoCount: 1,
+      orientationCounts: {
+        portrait: 1,
+        landscape: 0,
+        square: 0
+      },
+      templates: featuredTemplates
+    });
+
+    const bottleLabel = recommendations.find(
+      (recommendation) => recommendation.template.slug === "graduation-water-bottle-label"
+    );
+
+    expect(bottleLabel?.canUse).toBe(true);
+    expect(bottleLabel?.reasons).toContain("Made for this occasion.");
+    expect(bottleLabel?.reasons).toContain("Perfect number of photos.");
+  });
+
+  it("keeps missing-photo designs visible but blocked with plain language", () => {
+    const recommendations = recommendTemplates({
+      category: "cut_sheet",
+      photoCount: 1,
+      orientationCounts: {
+        portrait: 1,
+        landscape: 0,
+        square: 0
+      },
+      templates: featuredTemplates
+    });
+
+    const polaroidSheet = recommendations.find(
+      (recommendation) => recommendation.template.slug === "a4-9-polaroid-cut-sheet"
+    );
+
+    expect(polaroidSheet?.canUse).toBe(false);
+    expect(polaroidSheet?.label).toBe("Needs More Photos");
+    expect(polaroidSheet?.missingPhotoCount).toBe(8);
+    expect(polaroidSheet?.reasons).toContain("Add 8 more photos to use this design.");
   });
 
   it("summarizes photo orientations for recommendation input", () => {

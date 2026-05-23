@@ -99,12 +99,11 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
             id="checkout-heading"
             className="mt-3 font-display text-4xl leading-tight sm:text-6xl"
           >
-            Delivery details
+            Delivery and approval
           </h1>
           <p className="mt-4 text-base leading-7 text-charcoal-soft">
-            Confirm the details for your printed order. Payment stays cash on delivery, and the
-            order total is calculated from the product option, quantity, finish, and delivery city
-            you choose below.
+            Add your contact and delivery details, choose the product finish, then approve the
+            preview. Payment stays cash on delivery.
           </p>
           <p className="mt-3 text-sm font-semibold text-charcoal">
             Selected size: {formatTemplateSize(template)}
@@ -115,9 +114,23 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
             className="soft-card mt-8 grid gap-5 p-5 sm:p-6"
             method="post"
           >
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">Contact</p>
+              <h2 className="mt-1 text-2xl font-semibold">How we confirm your order</h2>
+              <p className="mt-2 text-sm leading-6 text-charcoal-soft">
+                We use WhatsApp to confirm details before printing.
+              </p>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Full name" name="clientName" required />
               <Field label="WhatsApp number" name="whatsapp" required />
+            </div>
+
+            <div className="border-t border-[rgb(199_163_95_/_0.18)] pt-5">
+              <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">
+                Delivery
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold">Where should we send it?</h2>
             </div>
             <Field label="Delivery address" name="deliveryAddress" required />
             <label className="grid gap-2 text-sm font-semibold text-charcoal">
@@ -147,6 +160,12 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
               />
             </label>
 
+            <div className="border-t border-[rgb(199_163_95_/_0.18)] pt-5">
+              <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">
+                Product options
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold">Choose print details</h2>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-semibold text-charcoal">
                 Quantity
@@ -228,6 +247,12 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
               </label>
             </div>
 
+            <div className="border-t border-[rgb(199_163_95_/_0.18)] pt-5">
+              <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">
+                Final approval
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold">Ready to send to Printili</h2>
+            </div>
             <div className="rounded-[8px] border border-[rgb(199_163_95_/_0.35)] bg-paper p-4">
               <p className="text-sm font-semibold text-charcoal">Before checkout checklist</p>
               <ul className="mt-3 grid gap-2 text-sm text-charcoal-soft">
@@ -257,7 +282,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
                     type="checkbox"
                     value="true"
                   />
-                  I understand the photo quality warnings.
+                  I understand some photos may print softer and still want to continue.
                 </label>
               ) : (
                 <input name="acknowledgeQualityWarnings" type="hidden" value="true" />

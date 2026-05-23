@@ -18,9 +18,7 @@ export function generateStaticParams() {
   }));
 }
 
-export async function generateMetadata({
-  params
-}: CatalogCategoryPageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: CatalogCategoryPageProps): Promise<Metadata> {
   const { slug } = await params;
   const category = getCatalogCategoryBySlug(slug);
 
@@ -49,6 +47,7 @@ export default async function CatalogCategoryPage({ params }: CatalogCategoryPag
   }
 
   const products = getActiveCatalogProductsByCategorySlug(category.slug);
+  const primaryProduct = products[0];
 
   return (
     <section className="page-shell printili-public-page" aria-labelledby="catalog-category-heading">
@@ -57,6 +56,12 @@ export default async function CatalogCategoryPage({ params }: CatalogCategoryPag
         image={category.heroImage}
         imageAlt={category.heroImageAlt}
         intro={category.description}
+        primaryAction={
+          primaryProduct
+            ? { href: `/start?template=${primaryProduct.slug}`, label: "Start with photos" }
+            : undefined
+        }
+        secondaryAction={{ href: `/templates/${category.slug}`, label: "See matching designs" }}
         titleId="catalog-category-heading"
         title={category.name}
       />
@@ -65,6 +70,10 @@ export default async function CatalogCategoryPage({ params }: CatalogCategoryPag
         <div>
           <p>Products</p>
           <h2 id="catalog-products-heading">Choose a {category.name.toLowerCase()} printable.</h2>
+          <span>
+            Start with a bottle label or round juice sticker. You can add name, year, school or
+            class, color theme, message, and optional photo in the editor.
+          </span>
         </div>
 
         <div>

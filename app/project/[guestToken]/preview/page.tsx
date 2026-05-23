@@ -7,7 +7,7 @@ import {
   getPublicTemplateBySlug,
   getPublicTemplateEditorLayout
 } from "@/lib/public-template-store";
-import { formatSheetSizeCm } from "@/lib/templates";
+import { formatTemplateSize } from "@/lib/templates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -49,6 +49,11 @@ export default async function ProjectPreviewPage({ params }: ProjectPreviewPageP
   const missingRequiredText = requiredTextFields.filter(
     (field) => !(project.textValues[field.key] ?? field.defaultValue ?? "").trim()
   ).length;
+  const isReadyForCheckout =
+    Boolean(template && layout) &&
+    missingSlots === 0 &&
+    warningPhotos.length === 0 &&
+    missingRequiredText === 0;
 
   return (
     <section className="page-shell py-12 sm:py-16" aria-labelledby="preview-heading">
@@ -57,10 +62,11 @@ export default async function ProjectPreviewPage({ params }: ProjectPreviewPageP
           Project {project.projectCode}
         </p>
         <h1 id="preview-heading" className="mt-3 font-display text-4xl leading-tight sm:text-6xl">
-          Preview & Submit Order
+          Review before printing
         </h1>
         <p className="mt-5 text-base leading-7 text-charcoal-soft">
-          This is a protected preview. Your final print will be clean and high quality.
+          This preview is protected with a watermark. Your final print is clean after the order is
+          confirmed.
         </p>
       </div>
 
@@ -91,11 +97,11 @@ export default async function ProjectPreviewPage({ params }: ProjectPreviewPageP
               </p>
               <h2 className="mt-2 text-2xl font-semibold">{template.name}</h2>
               <p className="mt-2 text-sm font-semibold text-charcoal">
-                {formatSheetSizeCm(template.sheetSize, template.orientation)}
+                {formatTemplateSize(template)}
               </p>
               <p className="mt-3 text-sm leading-6 text-charcoal-soft">
-                This screen proof uses the same crop rules as the editor and stays watermarked until
-                the order moves into the private production workflow.
+                Check the faces, captions, and photo positions. If something looks off, go back and
+                adjust the design before sending it to print.
               </p>
             </div>
 
@@ -103,9 +109,11 @@ export default async function ProjectPreviewPage({ params }: ProjectPreviewPageP
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.12em] text-rose">
-                    Print-safe checks
+                    Print checks
                   </p>
-                  <h2 className="mt-2 text-2xl font-semibold">Ready before print</h2>
+                  <h2 className="mt-2 text-2xl font-semibold">
+                    {isReadyForCheckout ? "Ready to order" : "Complete these first"}
+                  </h2>
                 </div>
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -140,32 +148,41 @@ export default async function ProjectPreviewPage({ params }: ProjectPreviewPageP
                   value={missingRequiredText === 0 ? "Complete" : `${missingRequiredText} missing`}
                   isReady={missingRequiredText === 0}
                 />
-                <PreviewCheck
-                  label="Output"
-                  value={`${template.dpi} DPI`}
-                  isReady={template.dpi >= 300}
-                />
-                <PreviewCheck
-                  label="Safe margin"
-                  value={`${template.safeMarginMm} mm`}
-                  isReady={template.safeMarginMm >= 5}
-                />
-                <PreviewCheck
-                  label="Bleed"
-                  value={`${template.bleedMm} mm`}
-                  isReady={template.productType === "cut_sheet" || template.bleedMm >= 3}
-                />
               </dl>
 
               {warningPhotos.length > 0 ? (
                 <div className="mt-4 rounded-[8px] bg-rose-soft p-4 text-sm leading-6 text-charcoal">
+                  <p className="font-semibold">Some photos may print softer.</p>
                   {warningPhotos.slice(0, 3).map((photo, index) => (
-                    <p key={photo.id ?? `${photo.fileName}-${index}`}>
+                    <p className="mt-1" key={photo.id ?? `${photo.fileName}-${index}`}>
                       Photo {index + 1}: {photo.qualityWarnings[0]}
                     </p>
                   ))}
                 </div>
               ) : null}
+
+              <details className="mt-4 rounded-[8px] border border-[rgb(199_163_95_/_0.24)] bg-paper p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-charcoal">
+                  Advanced print details
+                </summary>
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+                  <PreviewCheck
+                    label="Output"
+                    value={`${template.dpi} DPI`}
+                    isReady={template.dpi >= 300}
+                  />
+                  <PreviewCheck
+                    label="Safe margin"
+                    value={`${template.safeMarginMm} mm`}
+                    isReady={template.safeMarginMm >= 5}
+                  />
+                  <PreviewCheck
+                    label="Bleed"
+                    value={`${template.bleedMm} mm`}
+                    isReady={template.productType === "cut_sheet" || template.bleedMm >= 3}
+                  />
+                </dl>
+              </details>
             </div>
           </div>
         </div>
@@ -177,20 +194,37 @@ export default async function ProjectPreviewPage({ params }: ProjectPreviewPageP
         </div>
       )}
 
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-        <Link
-          className="focus-ring inline-flex min-h-12 items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)]"
-          href={`/project/${guestToken}/editor`}
-        >
-          Edit design
-        </Link>
-        <Link
-          className="focus-ring inline-flex min-h-12 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-5 text-sm font-semibold text-charcoal transition hover:bg-cream"
-          href={`/project/${guestToken}/checkout`}
-        >
-          Submit order
-        </Link>
-      </div>
+      {isReadyForCheckout ? (
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <Link
+            className="focus-ring inline-flex min-h-12 items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)]"
+            href={`/project/${guestToken}/checkout`}
+          >
+            Continue to delivery details
+          </Link>
+          <Link
+            className="focus-ring inline-flex min-h-12 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-5 text-sm font-semibold text-charcoal transition hover:bg-cream"
+            href={`/project/${guestToken}/editor`}
+          >
+            Edit design
+          </Link>
+        </div>
+      ) : (
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <Link
+            className="focus-ring inline-flex min-h-12 items-center justify-center rounded-full bg-charcoal px-5 text-sm font-semibold text-paper transition hover:bg-[rgb(62_55_51)]"
+            href={`/project/${guestToken}/editor`}
+          >
+            Go back and complete design
+          </Link>
+          <Link
+            className="focus-ring inline-flex min-h-12 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-5 text-sm font-semibold text-charcoal transition hover:bg-cream"
+            href="/templates"
+          >
+            Browse other designs
+          </Link>
+        </div>
+      )}
     </section>
   );
 }

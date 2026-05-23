@@ -30,6 +30,7 @@ export function StartUploadFlow({
   const [status, setStatus] = useState<UploadState>("idle");
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
+  const [isDraggingPhotos, setIsDraggingPhotos] = useState(false);
 
   const totalSize = useMemo(() => files.reduce((sum, file) => sum + file.size, 0), [files]);
   const previewUrls = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
@@ -54,6 +55,19 @@ export function StartUploadFlow({
 
     updateSelectedFiles(mergeUniqueFiles(files, selectedFiles));
     event.currentTarget.value = "";
+  }
+
+  function handleFileDrop(event: React.DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setIsDraggingPhotos(false);
+
+    const selectedFiles = Array.from(event.dataTransfer.files ?? []);
+
+    if (selectedFiles.length === 0) {
+      return;
+    }
+
+    updateSelectedFiles(mergeUniqueFiles(files, selectedFiles));
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -222,8 +236,8 @@ export function StartUploadFlow({
           Upload photos
         </h2>
         <p className="mt-3 text-sm leading-6 text-charcoal-soft">
-          Your photos stay private and are used only for your order. Print size is chosen by the
-          template you select next.
+          Your photos stay private and are used only for your order. Original files are kept for
+          print quality, and you can add extra photos without losing the current carousel.
         </p>
 
         {initialTemplateName && initialTemplateMinPhotos ? (
@@ -259,14 +273,29 @@ export function StartUploadFlow({
           </div>
         ) : null}
 
-        <label className="mt-5 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-[rgb(199_163_95_/_0.55)] bg-paper px-5 py-8 text-center transition hover:bg-cream">
+        <label
+          className={`mt-5 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed px-5 py-8 text-center transition ${
+            isDraggingPhotos
+              ? "border-rose bg-rose-soft"
+              : "border-[rgb(199_163_95_/_0.55)] bg-paper hover:bg-cream"
+          }`}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setIsDraggingPhotos(true);
+          }}
+          onDragLeave={() => setIsDraggingPhotos(false)}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleFileDrop}
+        >
           <span className="text-lg font-semibold">
-            {files.length > 0
-              ? "Add more photos to the carousel"
-              : "Choose photos from your device"}
+            {isDraggingPhotos
+              ? "Drop photos here"
+              : files.length > 0
+                ? "Add more photos to the carousel"
+                : "Choose photos from your device"}
           </span>
           <span className="mt-2 text-sm leading-6 text-charcoal-soft">
-            New uploads are added to your current photos. Up to 12 MB each.
+            Drag and drop or browse. New uploads are added to your current photos. Up to 12 MB each.
           </span>
           <input
             accept="image/*"
@@ -402,7 +431,7 @@ export function StartUploadFlow({
               />
             </div>
             <p className="mt-2 text-sm font-medium text-charcoal-soft">
-              Uploading and preparing your private project... {progress}%
+              We are checking photo size and preparing design suggestions... {progress}%
             </p>
           </div>
         )}

@@ -67,7 +67,7 @@ export default async function TemplateCategoryPage({ params, searchParams }: Cat
         primaryAction={{ href: "/start", label: "Start creating" }}
         secondaryAction={{ href: "/templates", label: "All products" }}
         titleId="category-heading"
-        title={`${category.name} photo montage templates`}
+        title={getCategoryPageTitle(category.id, category.name)}
       />
 
       <div className="mt-8">
@@ -105,6 +105,18 @@ export default async function TemplateCategoryPage({ params, searchParams }: Cat
       )}
     </section>
   );
+}
+
+function getCategoryPageTitle(categoryId: string, categoryName: string) {
+  if (categoryId === "graduation") {
+    return "Graduation labels and stickers";
+  }
+
+  if (categoryId === "cut_sheet") {
+    return "Polaroid and cut sheet designs";
+  }
+
+  return `${categoryName} photo templates`;
 }
 
 function categoryHeroImage(categoryId: string) {

@@ -20,14 +20,16 @@ export type TemplateRecommendation = {
   matchScore: number;
   label: RecommendationLabel;
   reasons: string[];
+  missingPhotoCount: number;
+  extraPhotoCount: number;
   canUse: boolean;
 };
 
 export type RecommendationLabel =
-  | "Best Match"
+  | "Best Fit"
   | "Most Popular"
-  | "Best for A3"
-  | "Cut-Ready"
+  | "Large Poster"
+  | "Easy to Cut"
   | "Needs More Photos"
   | "Good Option";
 
@@ -53,8 +55,18 @@ export function recommendTemplates({
         productType
       })
     )
-    .filter((recommendation) => recommendation.canUse)
-    .sort((a, b) => b.matchScore - a.matchScore)
+    .filter((recommendation) => recommendation.matchScore > 0)
+    .sort((a, b) => {
+      if (a.matchScore !== b.matchScore) {
+        return b.matchScore - a.matchScore;
+      }
+
+      if (a.canUse !== b.canUse) {
+        return a.canUse ? -1 : 1;
+      }
+
+      return a.template.name.localeCompare(b.template.name);
+    })
     .slice(0, Math.max(3, Math.min(limit, 6)));
 }
 
@@ -71,7 +83,7 @@ function scoreTemplate({
 
   if (template.categoryId === category) {
     score += 30;
-    reasons.push("Matches the selected gift category.");
+    reasons.push("Made for this occasion.");
   }
 
   const countFit = getPhotoCountFit(template, photoCount);
@@ -80,7 +92,7 @@ function scoreTemplate({
 
   if (sheetSize && sheetSize !== "custom" && template.sheetSize === sheetSize) {
     score += 25;
-    reasons.push(`Built for ${sheetSize} printing.`);
+    reasons.push(`Ready for ${sheetSize} printing.`);
   }
 
   const orientationScore = getOrientationScore(template, orientationCounts);
@@ -90,24 +102,24 @@ function scoreTemplate({
   if (productType) {
     if (template.productType === productType) {
       score += 10;
-      reasons.push("Matches the selected product type.");
+      reasons.push("Matches the product you selected.");
     }
   } else if (template.productType === "poster") {
     score += 4;
-    reasons.push("Poster format works well as a first recommendation.");
+    reasons.push("Good for a printed gift poster.");
   }
 
   if (template.isFeatured) {
     score += 5;
-    reasons.push("Featured design with strong customer appeal.");
+    reasons.push("Customer-friendly design.");
   }
 
   if (template.hasCutGuides) {
     score += 3;
-    reasons.push("Cut-ready with guide lines for finishing.");
+    reasons.push("Great for cutting after print.");
   }
 
-  const canUse = countFit.canUse;
+  const canUse = countFit.canUse && countFit.missingPhotoCount === 0;
   const matchScore = Math.max(0, Math.min(100, Math.round(score)));
 
   return {
@@ -115,6 +127,8 @@ function scoreTemplate({
     matchScore,
     label: getRecommendationLabel(template, matchScore, countFit.needsMorePhotos),
     reasons: Array.from(new Set(reasons)).slice(0, 4),
+    missingPhotoCount: countFit.missingPhotoCount,
+    extraPhotoCount: countFit.extraPhotoCount,
     canUse
   };
 }
@@ -123,9 +137,11 @@ function getPhotoCountFit(template: TemplateSeed, photoCount: number) {
   if (photoCount >= template.minPhotos && photoCount <= template.maxPhotos) {
     return {
       score: 30,
-      reason: "Photo count fits this template.",
+      reason: "Perfect number of photos.",
       canUse: true,
-      needsMorePhotos: false
+      needsMorePhotos: false,
+      missingPhotoCount: 0,
+      extraPhotoCount: 0
     };
   }
 
@@ -134,9 +150,11 @@ function getPhotoCountFit(template: TemplateSeed, photoCount: number) {
 
     return {
       score: missing <= adaptableGap ? 8 : 0,
-      reason: `Needs ${missing} more photo${missing === 1 ? "" : "s"} for the best layout.`,
+      reason: `Add ${missing} more photo${missing === 1 ? "" : "s"} to use this design.`,
       canUse: missing <= adaptableGap,
-      needsMorePhotos: true
+      needsMorePhotos: true,
+      missingPhotoCount: missing,
+      extraPhotoCount: 0
     };
   }
 
@@ -146,10 +164,12 @@ function getPhotoCountFit(template: TemplateSeed, photoCount: number) {
     score: extra <= adaptableGap ? 12 : 0,
     reason:
       extra <= adaptableGap
-        ? "Can adapt by using the strongest uploaded photos."
-        : "Too many photos for this layout without a different design.",
+        ? "We can use your strongest photos and keep extras for later."
+        : "This design has fewer photo spots than your upload.",
     canUse: extra <= adaptableGap,
-    needsMorePhotos: false
+    needsMorePhotos: false,
+    missingPhotoCount: 0,
+    extraPhotoCount: extra
   };
 }
 
@@ -165,7 +185,7 @@ function getOrientationScore(
   if (preferredTotal === 0) {
     return {
       score: 8,
-      reason: "Flexible orientation mix."
+      reason: "Flexible for different photo shapes."
     };
   }
 
@@ -179,8 +199,8 @@ function getOrientationScore(
     score,
     reason:
       score >= 10
-        ? "Uploaded photo orientations suit the layout."
-        : "Orientation mix may need a little manual adjustment."
+        ? "Good for your mix of vertical and horizontal photos."
+        : "May need small crop adjustments."
   };
 }
 
@@ -194,11 +214,11 @@ function getRecommendationLabel(
   }
 
   if (template.hasCutGuides) {
-    return "Cut-Ready";
+    return "Easy to Cut";
   }
 
   if (template.sheetSize === "A3") {
-    return "Best for A3";
+    return "Large Poster";
   }
 
   if (template.isFeatured && matchScore >= 70) {
@@ -206,7 +226,7 @@ function getRecommendationLabel(
   }
 
   if (matchScore >= 75) {
-    return "Best Match";
+    return "Best Fit";
   }
 
   return "Good Option";

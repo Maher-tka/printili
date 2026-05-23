@@ -24,8 +24,7 @@ export async function generateMetadata({ params }: ProjectSuggestionsPageProps):
 
   return {
     title: project ? `Project ${project.projectCode} Suggestions` : "Project Suggestions",
-    description:
-      "Review placeholder template suggestions for a private printable photo montage project."
+    description: "Choose a Printili design that fits your uploaded photos."
   };
 }
 
@@ -46,6 +45,8 @@ export default async function ProjectSuggestionsPage({ params }: ProjectSuggesti
     templates,
     limit: 6
   });
+  const friendlyWarningCount = analysisSummary.qualityWarnings.length;
+  const canUseCount = recommendations.filter((recommendation) => recommendation.canUse).length;
 
   return (
     <section className="page-shell py-12 sm:py-16" aria-labelledby="suggestions-heading">
@@ -57,22 +58,22 @@ export default async function ProjectSuggestionsPage({ params }: ProjectSuggesti
           id="suggestions-heading"
           className="mt-3 font-display text-4xl leading-tight sm:text-6xl"
         >
-          Template suggestions are ready to begin
+          Best designs for your photos
         </h1>
         <p className="mt-5 text-base leading-7 text-charcoal-soft">
-          This is the first matching engine. It uses your category, photo count, and photo
-          orientations; the final print size comes from the template you choose.
+          We found designs that fit your upload. Choose your favorite, then you can adjust crops,
+          add text, preview, and send the order.
         </p>
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <div className="soft-card p-5">
-          <p className="text-sm font-semibold text-charcoal-soft">Category</p>
+          <p className="text-sm font-semibold text-charcoal-soft">Occasion</p>
           <p className="mt-2 text-lg font-semibold">{categoryLabels[project.category]}</p>
         </div>
         <div className="soft-card p-5">
-          <p className="text-sm font-semibold text-charcoal-soft">Print size</p>
-          <p className="mt-2 text-lg font-semibold">Chosen by template</p>
+          <p className="text-sm font-semibold text-charcoal-soft">Ready designs</p>
+          <p className="mt-2 text-lg font-semibold">{canUseCount}</p>
         </div>
         <div className="soft-card p-5">
           <p className="text-sm font-semibold text-charcoal-soft">Photos</p>
@@ -82,47 +83,81 @@ export default async function ProjectSuggestionsPage({ params }: ProjectSuggesti
         </div>
       </div>
 
-      <section className="mt-10" aria-labelledby="analysis-heading">
-        <h2 id="analysis-heading" className="font-display text-3xl leading-tight sm:text-4xl">
-          Photo analysis summary
-        </h2>
+      <div className="mt-8 rounded-[var(--radius-card)] bg-paper p-5 shadow-soft">
+        <h2 className="text-xl font-semibold">Your photos are ready for design matching.</h2>
+        <p className="mt-2 text-sm leading-6 text-charcoal-soft">
+          These designs fit your photo count best. Some photos may still need small crop adjustments
+          in the editor.
+        </p>
+        {friendlyWarningCount > 0 ? (
+          <div className="mt-4 rounded-[8px] bg-rose-soft p-4 text-sm leading-6 text-charcoal">
+            Some photos may print softer. You can still continue, and we will show reminders again
+            before checkout.
+          </div>
+        ) : null}
+      </div>
 
+      <section className="mt-10" aria-labelledby="matching-heading">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 id="matching-heading" className="font-display text-3xl leading-tight sm:text-4xl">
+              Choose your favorite design
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-charcoal-soft">
+              Start with one design now. You can still move photos, use Smart Fix, and edit text
+              after choosing.
+            </p>
+          </div>
+          <Link
+            className="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-5 text-sm font-semibold text-charcoal transition hover:bg-cream"
+            href="/templates"
+          >
+            Browse all templates
+          </Link>
+        </div>
+
+        {recommendations.length > 0 ? (
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {recommendations.map((recommendation) => (
+              <RecommendationCard
+                guestToken={guestToken}
+                key={recommendation.template.id}
+                recommendation={recommendation}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="soft-card mt-6 p-7">
+            <h3 className="text-xl font-semibold">No exact matches yet.</h3>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-charcoal-soft">
+              Browse all products or upload a few more photos so we can suggest a better design.
+            </p>
+          </div>
+        )}
+      </section>
+
+      <details className="mt-8 rounded-[var(--radius-card)] border border-[rgb(199_163_95_/_0.24)] bg-paper p-5">
+        <summary className="cursor-pointer text-sm font-semibold text-charcoal">
+          Advanced photo details
+        </summary>
         <div className="mt-5 grid gap-4 sm:grid-cols-4">
-          <div className="soft-card p-5">
+          <div className="rounded-[8px] bg-cream p-4">
             <p className="text-sm font-semibold text-charcoal-soft">Total photos</p>
             <p className="mt-2 text-2xl font-semibold">{analysisSummary.totalPhotos}</p>
           </div>
-          <div className="soft-card p-5">
-            <p className="text-sm font-semibold text-charcoal-soft">Portrait</p>
+          <div className="rounded-[8px] bg-cream p-4">
+            <p className="text-sm font-semibold text-charcoal-soft">Vertical</p>
             <p className="mt-2 text-2xl font-semibold">{analysisSummary.portraitCount}</p>
           </div>
-          <div className="soft-card p-5">
-            <p className="text-sm font-semibold text-charcoal-soft">Landscape</p>
+          <div className="rounded-[8px] bg-cream p-4">
+            <p className="text-sm font-semibold text-charcoal-soft">Horizontal</p>
             <p className="mt-2 text-2xl font-semibold">{analysisSummary.landscapeCount}</p>
           </div>
-          <div className="soft-card p-5">
+          <div className="rounded-[8px] bg-cream p-4">
             <p className="text-sm font-semibold text-charcoal-soft">Square</p>
             <p className="mt-2 text-2xl font-semibold">{analysisSummary.squareCount}</p>
           </div>
         </div>
-
-        {analysisSummary.qualityWarnings.length > 0 ? (
-          <div className="mt-5 rounded-[var(--radius-card)] bg-rose-soft p-5">
-            <h3 className="text-lg font-semibold">Quality warnings</h3>
-            <ul className="mt-3 space-y-2 text-sm leading-6 text-charcoal">
-              {analysisSummary.qualityWarnings.map((warning) => (
-                <li key={warning}>{warning}</li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <div className="mt-5 rounded-[var(--radius-card)] bg-paper p-5">
-            <h3 className="text-lg font-semibold">No quality warnings found.</h3>
-            <p className="mt-2 text-sm leading-6 text-charcoal-soft">
-              These photos look ready for first-pass template matching.
-            </p>
-          </div>
-        )}
 
         <div className="mt-5 overflow-hidden rounded-[var(--radius-card)] border border-[rgb(199_163_95_/_0.24)] bg-paper">
           <div className="grid gap-px bg-[rgb(199_163_95_/_0.2)]">
@@ -148,52 +183,7 @@ export default async function ProjectSuggestionsPage({ params }: ProjectSuggesti
             ))}
           </div>
         </div>
-      </section>
-
-      <section className="mt-10" aria-labelledby="matching-heading">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 id="matching-heading" className="font-display text-3xl leading-tight sm:text-4xl">
-              Matching templates
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-charcoal-soft">
-              Top {recommendations.length} recommendation
-              {recommendations.length === 1 ? "" : "s"} from the template library.
-            </p>
-          </div>
-          <Link
-            className="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-[rgb(199_163_95_/_0.45)] bg-paper px-5 text-sm font-semibold text-charcoal transition hover:bg-cream"
-            href="/templates"
-          >
-            Browse all templates
-          </Link>
-        </div>
-
-        {recommendations.length > 0 ? (
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {recommendations.map((recommendation) => (
-              <RecommendationCard
-                guestToken={guestToken}
-                key={recommendation.template.id}
-                recommendation={recommendation}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="soft-card mt-6 p-7">
-            <h3 className="text-xl font-semibold">No exact matches yet.</h3>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-charcoal-soft">
-              The next recommendation phase will broaden matching across orientation and product
-              type. For now, browse the full template library.
-            </p>
-          </div>
-        )}
-      </section>
-
-      <p className="mt-8 text-sm text-charcoal-soft">
-        Saved in {project.persistence === "database" ? "the database" : "local development storage"}
-        .
-      </p>
+      </details>
     </section>
   );
 }

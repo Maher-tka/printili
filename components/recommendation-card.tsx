@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   categoryLabels,
   formatPhotoCountRange,
-  formatSheetSizeCm,
+  formatTemplateSize,
   productTypeLabels
 } from "@/lib/templates";
 import type { TemplateRecommendation } from "@/lib/template-recommender";
@@ -42,13 +42,20 @@ export function RecommendationCard({ recommendation, guestToken }: Recommendatio
           <span aria-hidden="true">/</span>
           <span>{productTypeLabels[template.productType]}</span>
           <span aria-hidden="true">/</span>
-          <span>{formatSheetSizeCm(template.sheetSize, template.orientation)}</span>
+          <span>{formatTemplateSize(template)}</span>
         </div>
 
         <h3 className="mt-3 text-xl font-semibold leading-snug">{template.name}</h3>
         <p className="mt-2 text-sm leading-6 text-charcoal-soft">
           {formatPhotoCountRange(template.minPhotos, template.maxPhotos)}
         </p>
+
+        {recommendation.missingPhotoCount > 0 ? (
+          <p className="mt-3 rounded-[8px] bg-rose-soft px-3 py-2 text-sm font-semibold text-charcoal">
+            Needs {recommendation.missingPhotoCount} more photo
+            {recommendation.missingPhotoCount === 1 ? "" : "s"} before editing.
+          </p>
+        ) : null}
 
         <ul className="mt-4 space-y-2 text-sm leading-6 text-charcoal-soft">
           {recommendation.reasons.map((reason) => (
@@ -67,7 +74,7 @@ export function RecommendationCard({ recommendation, guestToken }: Recommendatio
             disabled={!recommendation.canUse}
             type="submit"
           >
-            {recommendation.canUse ? "Use this template" : "Needs more photos"}
+            {recommendation.canUse ? "Use this design" : "Add more photos first"}
           </button>
         </form>
       </CardContent>

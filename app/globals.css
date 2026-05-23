@@ -473,6 +473,15 @@ img {
   line-height: 0.98;
 }
 
+.printili-catalog-products > div:first-child span {
+  display: block;
+  max-width: 48rem;
+  margin-top: 0.9rem;
+  color: #5f5b55;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
 .printili-catalog-products > div:last-child {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -563,6 +572,38 @@ img {
   padding: 1.15rem;
   box-shadow: 0 18px 46px rgb(67 44 24 / 0.1);
   backdrop-filter: blur(18px);
+}
+
+.printili-template-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.printili-template-chips a {
+  display: inline-flex;
+  min-height: 2.4rem;
+  align-items: center;
+  border: 1px solid rgb(40 30 20 / 0.1);
+  border-radius: 999px;
+  background: rgb(255 250 243 / 0.72);
+  color: #161616;
+  padding-inline: 0.95rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  transition:
+    transform 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.printili-template-chips a:hover,
+.printili-template-chips a[aria-current="page"] {
+  border-color: rgb(216 115 85 / 0.3);
+  background: rgb(243 196 177 / 0.34);
+  box-shadow: 0 10px 24px rgb(67 44 24 / 0.08);
+  transform: translateY(-1px);
 }
 
 .printili-template-filters__field {
@@ -754,7 +795,7 @@ img {
 
 .printili-template-card dl {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.9rem;
   margin: 1rem 0 0;
   color: #161616;
@@ -768,6 +809,23 @@ img {
 .printili-template-card dd {
   margin: 0.25rem 0 0;
   color: #5f5b55;
+}
+
+.printili-template-card__best-for {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+}
+
+.printili-template-card__best-for span {
+  border: 1px solid rgb(40 30 20 / 0.08);
+  border-radius: 999px;
+  background: rgb(248 241 232 / 0.78);
+  color: #5f5b55;
+  padding: 0.38rem 0.62rem;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .printili-template-card__cta {

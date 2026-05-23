@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   categoryLabels,
   formatPhotoCountRange,
-  formatSheetSizeCm,
+  formatTemplateSize,
   productTypeLabels,
   sheetSizeLabels
 } from "@/lib/templates";
@@ -44,10 +44,7 @@ export function TemplateCard({ template }: TemplateCardProps) {
           <span>{productTypeLabels[template.productType]}</span>
         </div>
         <h2>
-          <Link
-            className="focus-ring"
-            href={`/template/${template.slug}`}
-          >
+          <Link className="focus-ring" href={`/template/${template.slug}`}>
             {template.name}
           </Link>
         </h2>
@@ -55,24 +52,33 @@ export function TemplateCard({ template }: TemplateCardProps) {
 
         <dl>
           <div>
+            <dt>Product</dt>
+            <dd>{productTypeLabels[template.productType]}</dd>
+          </div>
+          <div>
             <dt>Photos</dt>
-            <dd>
-              {formatPhotoCountRange(template.minPhotos, template.maxPhotos)}
-            </dd>
+            <dd>{formatPhotoCountRange(template.minPhotos, template.maxPhotos)}</dd>
           </div>
           <div>
             <dt>Size</dt>
-            <dd>
-              {formatSheetSizeCm(template.sheetSize, template.orientation)}
-            </dd>
+            <dd>{formatTemplateSize(template)}</dd>
           </div>
         </dl>
 
+        <div
+          className="printili-template-card__best-for"
+          aria-label={`${template.name} is best for`}
+        >
+          {template.bestFor.slice(0, 3).map((item) => (
+            <span key={item}>{item}</span>
+          ))}
+        </div>
+
         <Link
           className="focus-ring printili-template-card__cta"
-          href={`/template/${template.slug}`}
+          href={`/start?template=${template.slug}`}
         >
-          {template.ctaLabel ?? "View Design"}
+          {template.ctaLabel ?? "Use this design"}
         </Link>
       </CardContent>
     </Card>

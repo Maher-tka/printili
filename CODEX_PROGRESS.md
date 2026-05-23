@@ -1,35 +1,121 @@
 # Printili Codex Progress
 
+## Current Phase
+
+Template discovery, recommendations, start upload, preview, checkout, and Graduation polish.
+
+## Files Inspected In Current Pass
+
+- `DESIGN.md`
+- `CODEX_PROGRESS.md`
+- `package.json`
+- `app/page.tsx`
+- `app/start/page.tsx`
+- `components/start-upload-flow.tsx`
+- `app/templates/page.tsx`
+- `app/templates/[category]/page.tsx`
+- `components/category-preview-card.tsx`
+- `components/template-card.tsx`
+- `components/template-filters.tsx`
+- `data/seed-templates.ts`
+- `data/catalog.ts`
+- `lib/templates.ts`
+- `lib/template-recommender.ts`
+- `lib/public-template-store.ts`
+- `app/project/[guestToken]/suggestions/page.tsx`
+- `components/recommendation-card.tsx`
+- `app/project/[guestToken]/editor/page.tsx`
+- `app/admin/projects/[guestToken]/editor/page.tsx`
+- `components/customer-editor.tsx`
+- `lib/smart-photo-fit.ts`
+- `app/project/[guestToken]/preview/page.tsx`
+- `app/project/[guestToken]/checkout/page.tsx`
+- `app/categories/[slug]/page.tsx`
+- `components/catalog-product-card.tsx`
+- `app/globals.css`
+- `app/api/projects/start/route.ts`
+- `app/api/projects/[guestToken]/template/route.ts`
+- `app/api/projects/[guestToken]/checkout/route.ts`
+- `app/api/projects/[guestToken]/placements/route.ts`
+- `app/api/projects/[guestToken]/text/route.ts`
+- `tests/catalog.test.ts`
+- `tests/smart-photo-fit.test.ts`
+- `tests/template-recommender.test.ts`
+
+## Current Pass Changes
+
+- Confirmed `/templates/[category]` exists, so existing category-card links are not broken.
+- Added quick browse chips for All, Photo Collage, Polaroid / Cut Sheets, Graduation, Baby, Birthday, Wedding, and Family.
+- Updated template cards to show product type, real custom size, photo count, best-use chips, and a working `Use this design` CTA to `/start?template=...`.
+- Rewrote recommendation labels and reasons into customer language.
+- Kept missing-photo recommendations visible but blocked with clear `Add more photos first` copy.
+- Reworked the project suggestions page into a friendly customer step and moved technical photo details behind `Advanced photo details`.
+- Added drag-and-drop support and stronger confidence copy to the start upload flow.
+- Improved preview page wording, moved DPI/safe-margin/bleed into advanced details, and made the primary action depend on readiness.
+- Split checkout copy into Contact, Delivery, Product options, and Final approval sections without changing the submission route.
+- Polished the Graduation catalog product cards with clearer product type and customizable field labels.
+- Added/updated recommendation tests for customer-friendly reasons and missing-photo blocking.
+
+## Current Pass Commands
+
+- `npx prettier --write ...touched files...`: passed
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `npm run test`: passed, 17 files and 64 tests
+- `npm run build`: passed
+- Browser smoke test passed on:
+  - `http://localhost:3000/templates`
+  - `http://localhost:3000/templates/graduation`
+  - `http://localhost:3000/categories/graduation`
+  - `http://localhost:3000/project/A8xC4-8lms_00IkpAI5mKcKzTf7z1lwHfiuW_S7lYlQ/suggestions`
+
+## Current Pass Remaining Tasks
+
+- Do a deeper mobile visual pass later. This pass intentionally kept changes to real flow and did not redesign the approved homepage hero.
+- Consider adding a project-level "add more photos" route so blocked recommendations can send customers directly to upload missing photos.
+- Consider splitting customer editor panels into smaller files after the accepted UX stabilizes.
+
+## Continuation Instructions
+
+If a new Codex session resumes from here, inspect the latest git diff first, then continue with mobile visual QA and a project-level add-more-photos flow. Do not redesign the approved homepage hero.
+
 ## Current UX Audit
 
 ### Homepage flow
+
 - The homepage uses the approved premium Printili hero and realistic product imagery, so the brand feeling is strong.
 - The primary path is mostly clear, but the product promise can still be simpler: upload photos, choose a template, preview, then order.
 - Category/product cards are visible and linked, including Graduation, but the public flow still needs plain-language guidance from products into the editor.
 
 ### Template/product browsing
+
 - `/templates` exposes categories, filters, and template cards. This is useful, but it can feel like a catalog/filter tool instead of a guided customer choice.
 - Graduation is already present and limited to the approved products: water bottle label and round juice sticker.
 - Size/product differences exist in metadata and cards, but ordinary customers need simpler wording around what the product is for.
 
 ### Upload/start flow
+
 - `/start` explains that photos create a private project and then suggestions appear.
 - The flow stores uploaded photos and supports adding more photos from earlier work, but the customer should see reassurance that photos stay private and can be changed later.
 
 ### Editor
+
 - The editor has strong functionality: autosave, undo/redo, slot selection, photo replacement, zoom/rotate/nudge, smart fit, blur fill, text styling, Polaroid captions, cut guides, and preview/checkout.
 - The main issue is cognitive load. The inspector currently shows too many controls at once, mixing beginner actions with advanced crop/design controls.
 - Some admin-only toolbar/design-tool UI is decorative and should be removed or made functional.
 - Mobile uses a bottom sheet, but it needs clearer tabs and fewer controls per view so the canvas stays understandable.
 
 ### Preview/checkout
+
 - Preview and checkout routes exist and are linked from the editor.
 - The editor already prevents navigation while saving/error states exist, but status wording should be friendlier.
 
 ### Admin
+
 - Admin can open the same editor in `adminMode`; admin complexity should remain clearly separated and not leak into customer mode.
 
 ### Trust
+
 - The site uses warm premium visuals and private magic-link language. More customer-facing reassurance should continue to be added around privacy, preview-before-print, WhatsApp help, and local print-shop workflow.
 
 ## Implementation Plan For This Pass
@@ -65,6 +151,7 @@
 ## Changes Completed In This Pass
 
 ### Editor UX
+
 - Reworked the customer editor inspector into clear beginner-friendly tabs: Photos, Adjust, Text, and More.
 - Added a next-best-action card that changes for selected spot, saving state, save error, and empty selection.
 - Renamed crop controls into customer language:
@@ -79,12 +166,14 @@
 - Reduced mobile bottom-sheet clutter by keeping the magic-link save panel out of the mobile sheet.
 
 ### Public Flow
+
 - Updated `/customer` to explain the customer path as Upload photos -> Choose a template -> Preview before print.
 - Replaced the broken/nonexistent FAQ CTA with a real start/preview path.
 - Added a private-by-default reassurance card.
 - Updated `/templates` hero copy and CTAs so it guides customers to start with photos or view Graduation products.
 
 ### Smart Photo Fit
+
 - Improved smart-fit safety for edge/group face cases: when faces are detected near the edge or spread across a group, mismatched crops prefer blur fill when allowed.
 - Added tests for edge-sensitive face focus and slots that disallow blur/smart crop.
 
